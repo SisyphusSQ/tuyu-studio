@@ -12,6 +12,7 @@ tmp/
 temp/
 **/output/
 docs/symphony/
+.superpowers/
 
 # Harness local auxiliary run surfaces
 .agents/state/*
