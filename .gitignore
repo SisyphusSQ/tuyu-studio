@@ -11,8 +11,13 @@ logs/
 tmp/
 temp/
 **/output/
-docs/symphony/
 .superpowers/
+
+# Local-only automation/runtime surfaces for Symphony dogfood.
+docs/symphony/
+
+# Local-only execution plans; canonical execution docs live in Linear.
+.agents/plans/
 
 # Harness local auxiliary run surfaces
 .agents/state/*
