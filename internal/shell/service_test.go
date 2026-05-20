@@ -3,6 +3,8 @@ package shell
 import (
 	"testing"
 	"time"
+
+	"github.com/SisyphusSQ/tuyu-studio/internal/project"
 )
 
 func TestServiceInfo(t *testing.T) {
@@ -92,5 +94,25 @@ func TestWorkbenchProbeStructuredError(t *testing.T) {
 	}
 	if result.Events[0].Error == nil {
 		t.Fatal("Event error must carry AppError")
+	}
+}
+
+func TestServiceProjectGraphViewResolvesRelativeExampleRoot(t *testing.T) {
+	result := NewService(time.Now()).ProjectGraphView(project.GraphViewCommand{
+		Root:          "examples/alpha-project",
+		CorrelationID: "test-example-graph",
+	})
+
+	if !result.OK {
+		t.Fatalf("ProjectGraphView() failed: %#v", result.Error)
+	}
+	if result.Canvas == nil {
+		t.Fatal("ProjectGraphView() Canvas = nil, want example project Canvas")
+	}
+	if result.Canvas.ProjectID != "proj_alpha_fixture" {
+		t.Fatalf("ProjectID = %q, want proj_alpha_fixture", result.Canvas.ProjectID)
+	}
+	if len(result.Canvas.Nodes) == 0 {
+		t.Fatal("Canvas nodes must be non-empty for the alpha example project")
 	}
 }

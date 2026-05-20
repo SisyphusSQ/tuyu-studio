@@ -1,4 +1,4 @@
-import type { EdgeData, GraphData, NodeData } from '@antv/g6'
+import type { EdgeData, GraphData, NodeBadgeStyleProps, NodeData } from '@antv/g6'
 
 import {
   createCorrelationId,
@@ -13,6 +13,7 @@ import {
   type ProjectGraphLayoutSaveCommandDTO,
   type ReferenceGroupDTO,
 } from '../api/dto'
+import { normalizeProjectRoot } from '../api/projectRoot'
 
 export type CanvasElementRole = 'domain_node' | 'reference_group' | 'production_frame'
 
@@ -23,6 +24,11 @@ export interface CanvasElementMeta {
   kind: string
   category: string
   persistLayout: boolean
+}
+
+export interface CanvasNodeBadgeMeta {
+  kind: string
+  text: string
 }
 
 export interface GraphLayoutSnapshot {
@@ -52,9 +58,10 @@ export function buildGraphLayoutSaveCommand(
   snapshot: GraphLayoutSnapshot,
   theme: CanvasTheme,
   grid: CanvasGridDTO,
+  root?: string,
 ): ProjectGraphLayoutSaveCommandDTO {
   return {
-    root: '',
+    root: normalizeProjectRoot(root),
     expectedGraphVersion: canvas.version,
     viewport: snapshot.viewport,
     theme,
@@ -75,6 +82,8 @@ export function visibleCanvasIssues(canvas: ProjectCanvasDTO): GraphEdgeDTO[] {
 
 function graphNode(node: GraphNodeDTO, theme: CanvasTheme): NodeData {
   const colors = nodeColors(node.category, theme)
+  const badges = nodeBadgeStyles(node, theme)
+  const badgeMeta = nodeBadgeMeta(node)
   const meta: CanvasElementMeta = {
     role: 'domain_node',
     id: node.id,
@@ -87,7 +96,7 @@ function graphNode(node: GraphNodeDTO, theme: CanvasTheme): NodeData {
   return {
     id: node.id,
     type: 'rect',
-    data: { meta, dto: node },
+    data: { meta, dto: node, badges: badgeMeta },
     style: {
       x: node.position.x,
       y: node.position.y,
@@ -104,6 +113,8 @@ function graphNode(node: GraphNodeDTO, theme: CanvasTheme): NodeData {
       labelFontWeight: 700,
       labelWordWrap: true,
       labelMaxWidth: Math.max(120, node.size.width - 28),
+      badge: badges.length > 0,
+      badges,
       zIndex: 4,
     },
   }
@@ -224,6 +235,99 @@ function nodeColors(category: string, theme: CanvasTheme) {
       return { fill: '#352632', stroke: '#b47b9a', text: '#f2e4ec' }
     default:
       return { fill: '#202820', stroke: '#8fb59d', text: '#eef2ec' }
+  }
+}
+
+function nodeBadgeMeta(node: GraphNodeDTO): CanvasNodeBadgeMeta[] {
+  return compactBadgeKinds(node).map((kind) => ({
+    kind,
+    text: badgeText(kind),
+  }))
+}
+
+function nodeBadgeStyles(node: GraphNodeDTO, theme: CanvasTheme): NodeBadgeStyleProps[] {
+  const placements: NonNullable<NodeBadgeStyleProps['placement']>[] = ['right-top', 'right', 'right-bottom']
+  return nodeBadgeMeta(node).slice(0, placements.length).map((badge, index) => {
+    const tone = badgeTone(badge.kind, theme)
+    return {
+      text: badge.text,
+      placement: placements[index],
+      offsetX: -8,
+      offsetY: index === 0 ? 8 : 0,
+      fontSize: 9,
+      fontWeight: 700,
+      fill: tone.text,
+      background: true,
+      backgroundFill: tone.fill,
+      backgroundStroke: tone.stroke,
+      backgroundLineWidth: 1,
+      padding: [2, 5],
+    }
+  })
+}
+
+function compactBadgeKinds(node: GraphNodeDTO): string[] {
+  const seen = new Set<string>()
+  return [...node.badges, node.status || '']
+    .map((badge) => badge.trim())
+    .filter(Boolean)
+    .filter((badge) => {
+      if (seen.has(badge)) {
+        return false
+      }
+      seen.add(badge)
+      return true
+    })
+}
+
+function badgeText(kind: string): string {
+  switch (kind) {
+    case 'context_ready':
+      return 'CTX'
+    case 'context_dirty':
+      return 'DIRTY'
+    case 'package_ready':
+      return 'PKG'
+    case 'pending_review':
+      return 'REV'
+    case 'missing_asset':
+      return 'MISS'
+    case 'draft':
+      return 'DRAFT'
+    default:
+      return kind.length > 8 ? kind.slice(0, 8).toUpperCase() : kind.toUpperCase()
+  }
+}
+
+function badgeTone(kind: string, theme: CanvasTheme) {
+  const dark = theme === 'dark'
+  switch (kind) {
+    case 'context_ready':
+    case 'package_ready':
+      return {
+        fill: dark ? '#2f5944' : '#dcedd8',
+        stroke: dark ? '#78bd93' : '#6fa26f',
+        text: dark ? '#edf8ee' : '#29472d',
+      }
+    case 'context_dirty':
+    case 'missing_asset':
+      return {
+        fill: dark ? '#5d3e1f' : '#f8e4bd',
+        stroke: dark ? '#d4a05d' : '#c78931',
+        text: dark ? '#fff4de' : '#4b3920',
+      }
+    case 'pending_review':
+      return {
+        fill: dark ? '#543249' : '#f0dce7',
+        stroke: dark ? '#c686a6' : '#a8718a',
+        text: dark ? '#fff0f7' : '#513143',
+      }
+    default:
+      return {
+        fill: dark ? '#35403a' : '#eef1e7',
+        stroke: dark ? '#8fa28f' : '#8fa28f',
+        text: dark ? '#f1f5ed' : '#283027',
+      }
   }
 }
 
