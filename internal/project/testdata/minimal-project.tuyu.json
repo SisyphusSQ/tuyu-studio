@@ -1,0 +1,56 @@
+{
+  "schemaVersion": "1.0.0",
+  "project": {
+    "id": "proj_alpha_001",
+    "name": "Alpha Fixture",
+    "type": "series",
+    "createdAt": "2026-05-20T04:00:00Z",
+    "updatedAt": "2026-05-20T04:00:00Z"
+  },
+  "paths": {
+    "root": ".",
+    "characters": "characters",
+    "scenes": "scenes",
+    "props": "props",
+    "shots": "shots",
+    "prompts": "prompts",
+    "promptRuns": "prompts/runs",
+    "assets": "assets",
+    "assetInputs": "assets/inputs",
+    "assetRefs": "assets/refs",
+    "assetOutputs": "assets/outputs",
+    "assetResults": "assets/results",
+    "assetThumbnails": "assets/thumbnails",
+    "packages": "packages",
+    "audit": "audit",
+    "backups": "backups",
+    "locks": "locks"
+  },
+  "defaults": {
+    "providerProfileId": "provider_manual_handoff",
+    "language": "zh",
+    "aspectRatio": "9:16"
+  },
+  "integrity": {
+    "lastCleanShutdown": true,
+    "lastGraphVersion": 1
+  },
+  "graph": {
+    "version": 1,
+    "nodes": [],
+    "edges": [],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "principles": {
+    "summary": "",
+    "lockedRules": []
+  },
+  "styleBible": {
+    "summary": "",
+    "visualRules": []
+  }
+}
