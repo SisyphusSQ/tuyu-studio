@@ -117,6 +117,7 @@ func (s *Service) Info() Info {
 			"project_continuity_rule_unlock",
 			"project_asset_binding_unlock",
 			"project_generation_package_export",
+			"project_mock_run",
 		},
 	}
 }
@@ -265,6 +266,21 @@ func (s *Service) ProjectShotContextMarkDirty(command project.MarkShotContextDir
 func (s *Service) ProjectGenerationPackageExport(command project.ExportGenerationPackageCommand) project.GenerationPackageResult {
 	command.Root = s.projectRoot(command.Root)
 	return s.projectStore.ExportGenerationPackage(command)
+}
+
+func (s *Service) ProjectMockRunStart(command project.MockRunCommand) project.MockRunResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.StartMockRun(command)
+}
+
+func (s *Service) ProjectMockRunCancel(command project.MockRunCommand) project.MockRunResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.CancelMockRun(command)
+}
+
+func (s *Service) ProjectMockRunRetry(command project.MockRunCommand) project.MockRunResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.RetryMockRun(command)
 }
 
 func (s *Service) WorkbenchProbe(command WorkbenchProbeCommand) WorkbenchProbeResult {

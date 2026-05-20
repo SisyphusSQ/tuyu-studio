@@ -741,6 +741,57 @@ export interface GenerationPackageResultDTO {
   events: ProjectEventDTO[]
 }
 
+export interface MockRunCommandDTO {
+  root?: string
+  runId?: string
+  shotId?: string
+  packageId?: string
+  selectionIds?: string[]
+  taskMode?: string
+  retryOfRunId?: string
+  cancelReason?: string
+  createdBy?: string
+  correlationId?: string
+}
+
+export interface MockRunOutputDTO {
+  runId: string
+  relativePath: string
+  digest: string
+  mimeType: string
+  sizeBytes: number
+  summary: string
+}
+
+export interface MockRunDTO {
+  schemaVersion?: string
+  runId: string
+  projectId: string
+  shotId?: string
+  packageId?: string
+  selectionIds: string[]
+  taskMode: string
+  providerMode: string
+  contextDigest: string
+  status: RuntimeEventState | string
+  attempt: number
+  retryOfRunId?: string
+  cancelReason?: string
+  runPath: string
+  eventsPath: string
+  output?: MockRunOutputDTO
+  createdAt: string
+  updatedAt: string
+}
+
+export interface MockRunResultDTO {
+  ok: boolean
+  run?: MockRunDTO
+  health?: HealthReportDTO
+  error?: AppErrorDTO
+  events: RuntimeEventDTO[]
+}
+
 export interface ScriptSceneCandidateResultDTO {
   ok: boolean
   document?: ScriptDocumentDTO
@@ -1121,6 +1172,37 @@ export function normalizeGenerationPackageResult(
   }
 }
 
+export function normalizeMockRunResult(
+  result: Partial<MockRunResultDTO> | null | undefined,
+  correlationId: string,
+): MockRunResultDTO {
+  if (!result) {
+    return {
+      ok: false,
+      error: normalizeUnknownError(new Error('empty mock run response'), correlationId),
+      events: [],
+    }
+  }
+
+  const events = Array.isArray(result.events)
+    ? result.events.map((event) => normalizeRuntimeEvent(event, correlationId))
+    : []
+  const health = result.health
+    ? {
+      ...result.health,
+      items: Array.isArray(result.health.items) ? result.health.items : [],
+    }
+    : undefined
+
+  return {
+    ok: Boolean(result.ok),
+    run: result.run ? normalizeMockRun(result.run) : undefined,
+    health,
+    error: result.error ? normalizeAppError(result.error, correlationId) : undefined,
+    events,
+  }
+}
+
 function normalizeProjectCanvas(canvas: ProjectCanvasDTO): ProjectCanvasDTO {
   return {
     ...canvas,
@@ -1413,6 +1495,56 @@ function normalizeGenerationPackage(pkg: Partial<GenerationPackageDTO>): Generat
       }))
       : [],
     createdAt: pkg.createdAt || '',
+  }
+}
+
+function normalizeMockRun(run: Partial<MockRunDTO>): MockRunDTO {
+  return {
+    schemaVersion: run.schemaVersion,
+    runId: run.runId || '',
+    projectId: run.projectId || '',
+    shotId: run.shotId,
+    packageId: run.packageId,
+    selectionIds: Array.isArray(run.selectionIds) ? run.selectionIds : [],
+    taskMode: run.taskMode || 'mock_local',
+    providerMode: run.providerMode || 'mock_local',
+    contextDigest: run.contextDigest || '',
+    status: run.status || 'failed',
+    attempt: Number(run.attempt || 0),
+    retryOfRunId: run.retryOfRunId,
+    cancelReason: run.cancelReason,
+    runPath: run.runPath || '',
+    eventsPath: run.eventsPath || '',
+    output: run.output ? normalizeMockRunOutput(run.output) : undefined,
+    createdAt: run.createdAt || '',
+    updatedAt: run.updatedAt || '',
+  }
+}
+
+function normalizeMockRunOutput(output: Partial<MockRunOutputDTO>): MockRunOutputDTO {
+  return {
+    runId: output.runId || '',
+    relativePath: output.relativePath || '',
+    digest: output.digest || '',
+    mimeType: output.mimeType || '',
+    sizeBytes: Number(output.sizeBytes || 0),
+    summary: output.summary || '',
+  }
+}
+
+function normalizeRuntimeEvent(event: Partial<RuntimeEventDTO>, correlationId: string): RuntimeEventDTO {
+  return {
+    eventId: event.eventId || `${correlationId}-event`,
+    runId: event.runId,
+    eventType: event.eventType || 'run.event',
+    state: event.state || 'failed',
+    progress: Number(event.progress || 0),
+    targetType: event.targetType,
+    targetId: event.targetId,
+    summary: event.summary || '',
+    error: event.error ? normalizeAppError(event.error, correlationId) : undefined,
+    nextActions: Array.isArray(event.nextActions) ? event.nextActions : [],
+    createdAt: event.createdAt || '',
   }
 }
 

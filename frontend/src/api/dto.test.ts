@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   normalizeProjectGraphViewResult,
+  normalizeMockRunResult,
   normalizeProbeResult,
   normalizeProjectOperationResult,
   normalizeUnknownError,
@@ -139,5 +140,51 @@ describe('AppErrorDTO normalization', () => {
     expect(normalized.canvas?.nodes[0].badges).toEqual(['context_ready'])
     expect(normalized.canvas?.edges[0].validity).toBe('missing_endpoint')
     expect(normalized.canvas?.edges[0].error?.code).toBe('graph_view_missing_endpoint')
+  })
+
+  it('normalizes mock run DTOs with runtime events and placeholder output', () => {
+    const normalized = normalizeMockRunResult({
+      ok: true,
+      run: {
+        runId: 'run_mock_shot_002_001',
+        projectId: 'proj_alpha_fixture',
+        shotId: 'shot_002',
+        selectionIds: ['shot_002'],
+        taskMode: 'mock_local',
+        providerMode: 'mock_local',
+        contextDigest: 'sha256:test',
+        status: 'completed',
+        attempt: 1,
+        runPath: 'prompts/runs/run_mock_shot_002_001/run.json',
+        eventsPath: 'prompts/runs/run_mock_shot_002_001/events.jsonl',
+        output: {
+          runId: 'run_mock_shot_002_001',
+          relativePath: 'assets/outputs/mock-run/run_mock_shot_002_001/placeholder-output.txt',
+          digest: 'sha256-output',
+          mimeType: 'text/plain',
+          sizeBytes: 42,
+          summary: 'placeholder',
+        },
+        createdAt: '2026-05-20T15:00:00Z',
+        updatedAt: '2026-05-20T15:00:00Z',
+      },
+      events: [
+        {
+          eventId: 'evt-run-complete',
+          runId: 'run_mock_shot_002_001',
+          eventType: 'run.complete',
+          state: 'completed',
+          progress: 100,
+          summary: 'Done',
+          nextActions: [],
+          createdAt: '2026-05-20T15:00:00Z',
+        },
+      ],
+    }, 'mock-correlation')
+
+    expect(normalized.ok).toBe(true)
+    expect(normalized.run?.providerMode).toBe('mock_local')
+    expect(normalized.run?.output?.relativePath).toContain('assets/outputs/mock-run')
+    expect(normalized.events[0].progress).toBe(100)
   })
 })

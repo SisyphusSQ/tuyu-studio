@@ -1471,6 +1471,211 @@ export namespace project {
 	        this.correlationId = source["correlationId"];
 	    }
 	}
+	export class MockRunCommand {
+	    root: string;
+	    runId?: string;
+	    shotId?: string;
+	    packageId?: string;
+	    selectionIds?: string[];
+	    taskMode?: string;
+	    retryOfRunId?: string;
+	    cancelReason?: string;
+	    createdBy?: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new MockRunCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.runId = source["runId"];
+	        this.shotId = source["shotId"];
+	        this.packageId = source["packageId"];
+	        this.selectionIds = source["selectionIds"];
+	        this.taskMode = source["taskMode"];
+	        this.retryOfRunId = source["retryOfRunId"];
+	        this.cancelReason = source["cancelReason"];
+	        this.createdBy = source["createdBy"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
+	export class MockRunOutputDTO {
+	    runId: string;
+	    relativePath: string;
+	    digest: string;
+	    mimeType: string;
+	    sizeBytes: number;
+	    summary: string;
+
+	    static createFrom(source: any = {}) {
+	        return new MockRunOutputDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.runId = source["runId"];
+	        this.relativePath = source["relativePath"];
+	        this.digest = source["digest"];
+	        this.mimeType = source["mimeType"];
+	        this.sizeBytes = source["sizeBytes"];
+	        this.summary = source["summary"];
+	    }
+	}
+	export class MockRunDTO {
+	    schemaVersion?: string;
+	    runId: string;
+	    projectId: string;
+	    shotId?: string;
+	    packageId?: string;
+	    selectionIds: string[];
+	    taskMode: string;
+	    providerMode: string;
+	    contextDigest: string;
+	    status: string;
+	    attempt: number;
+	    retryOfRunId?: string;
+	    cancelReason?: string;
+	    runPath: string;
+	    eventsPath: string;
+	    output?: MockRunOutputDTO;
+	    createdAt: string;
+	    updatedAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new MockRunDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.schemaVersion = source["schemaVersion"];
+	        this.runId = source["runId"];
+	        this.projectId = source["projectId"];
+	        this.shotId = source["shotId"];
+	        this.packageId = source["packageId"];
+	        this.selectionIds = source["selectionIds"];
+	        this.taskMode = source["taskMode"];
+	        this.providerMode = source["providerMode"];
+	        this.contextDigest = source["contextDigest"];
+	        this.status = source["status"];
+	        this.attempt = source["attempt"];
+	        this.retryOfRunId = source["retryOfRunId"];
+	        this.cancelReason = source["cancelReason"];
+	        this.runPath = source["runPath"];
+	        this.eventsPath = source["eventsPath"];
+	        this.output = this.convertValues(source["output"], MockRunOutputDTO);
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class MockRunEventDTO {
+	    eventId: string;
+	    runId?: string;
+	    eventType: string;
+	    state: string;
+	    progress: number;
+	    targetType?: string;
+	    targetId?: string;
+	    summary: string;
+	    error?: OperationError;
+	    nextActions: string[];
+	    createdAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new MockRunEventDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.eventId = source["eventId"];
+	        this.runId = source["runId"];
+	        this.eventType = source["eventType"];
+	        this.state = source["state"];
+	        this.progress = source["progress"];
+	        this.targetType = source["targetType"];
+	        this.targetId = source["targetId"];
+	        this.summary = source["summary"];
+	        this.error = this.convertValues(source["error"], OperationError);
+	        this.nextActions = source["nextActions"];
+	        this.createdAt = source["createdAt"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+	export class MockRunResult {
+	    ok: boolean;
+	    run?: MockRunDTO;
+	    health?: HealthReport;
+	    error?: OperationError;
+	    events: MockRunEventDTO[];
+
+	    static createFrom(source: any = {}) {
+	        return new MockRunResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.run = this.convertValues(source["run"], MockRunDTO);
+	        this.health = this.convertValues(source["health"], HealthReport);
+	        this.error = this.convertValues(source["error"], OperationError);
+	        this.events = this.convertValues(source["events"], MockRunEventDTO);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class OpenProjectCommand {
 	    root: string;
 	    takeover: boolean;
