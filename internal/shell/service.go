@@ -3,6 +3,7 @@ package shell
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -267,9 +268,40 @@ func (s *Service) WorkbenchProbe(command WorkbenchProbeCommand) WorkbenchProbeRe
 func (s *Service) projectRoot(root string) string {
 	root = strings.TrimSpace(root)
 	if root != "" {
-		return root
+		return resolveProjectRoot(root)
 	}
 	return s.defaultProjectRoot
+}
+
+func resolveProjectRoot(root string) string {
+	if filepath.IsAbs(root) {
+		return root
+	}
+
+	for _, base := range projectRootBases() {
+		candidate := filepath.Clean(filepath.Join(base, root))
+		if hasProjectManifest(candidate) {
+			return candidate
+		}
+	}
+
+	return root
+}
+
+func projectRootBases() []string {
+	bases := make([]string, 0, 2)
+	if cwd, err := os.Getwd(); err == nil && strings.TrimSpace(cwd) != "" {
+		bases = append(bases, cwd)
+	}
+	if _, filename, _, ok := runtime.Caller(0); ok {
+		bases = append(bases, filepath.Clean(filepath.Join(filepath.Dir(filename), "..", "..")))
+	}
+	return bases
+}
+
+func hasProjectManifest(root string) bool {
+	info, err := os.Stat(filepath.Join(root, project.ManifestFileName))
+	return err == nil && !info.IsDir()
 }
 
 func defaultProjectRoot() string {

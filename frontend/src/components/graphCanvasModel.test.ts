@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ProjectCanvasDTO } from '../api/dto'
+import { DEFAULT_ALPHA_PROJECT_ROOT } from '../api/projectRoot'
 import {
   buildG6GraphData,
   buildGraphLayoutSaveCommand,
@@ -29,6 +30,7 @@ describe('Graph Canvas model', () => {
     }, 'warm_light', { visible: false, size: 32, opacity: 0.2 })
 
     expect(command.expectedGraphVersion).toBe(3)
+    expect(command.root).toBe(DEFAULT_ALPHA_PROJECT_ROOT)
     expect(command.viewport.zoom).toBe(1.2)
     expect(command.theme).toBe('warm_light')
     expect(command.grid.visible).toBe(false)
@@ -38,6 +40,21 @@ describe('Graph Canvas model', () => {
       position: { x: 111, y: 222 },
     })
     expect(command.nodes.map((node) => node.id)).not.toContain('frame:frame_001')
+  })
+
+  it('maps fixture status badges into node-level G6 badge render data', () => {
+    const data = buildG6GraphData(sampleCanvas(), 'warm_light')
+    const shotNode = data.nodes?.find((node) => node.id === 'node_shot_001')
+
+    expect(shotNode?.data?.badges).toEqual([{ kind: 'context_ready', text: 'CTX' }])
+    expect(shotNode?.style?.badge).toBe(true)
+    expect(shotNode?.style?.badges).toEqual([
+      expect.objectContaining({
+        text: 'CTX',
+        placement: 'right-top',
+        background: true,
+      }),
+    ])
   })
 
   it('keeps invalid edge records visible for Canvas overlays', () => {

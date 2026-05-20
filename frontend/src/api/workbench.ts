@@ -16,12 +16,19 @@ import {
   normalizeProbeResult,
   normalizeUnknownError,
   type ProjectGraphLayoutSaveCommandDTO,
+  type ProjectGraphViewCommandDTO,
   type ProjectGraphViewResultDTO,
   type ProjectOperationName,
   type ProjectOperationResultDTO,
   type WorkbenchProbeMode,
   type WorkbenchProbeResultDTO,
 } from './dto'
+import { DEFAULT_ALPHA_PROJECT_ROOT, normalizeProjectRoot } from './projectRoot'
+
+export interface ProjectGraphViewOptions {
+  root?: string
+  expectedGraphVersion?: number
+}
 
 export async function runWorkbenchProbe(mode: WorkbenchProbeMode): Promise<WorkbenchProbeResultDTO> {
   const correlationId = createCorrelationId(`workbench-${mode}`)
@@ -83,15 +90,15 @@ export async function runProjectOperation(action: ProjectOperationName): Promise
   }
 }
 
-export async function runProjectGraphView(expectedGraphVersion?: number): Promise<ProjectGraphViewResultDTO> {
+export async function runProjectGraphView(
+  options?: number | ProjectGraphViewOptions,
+): Promise<ProjectGraphViewResultDTO> {
   const correlationId = createCorrelationId('project-graph-view')
 
   try {
-    const result = await ProjectGraphView(project.GraphViewCommand.createFrom({
-      root: '',
-      expectedGraphVersion,
-      correlationId,
-    }))
+    const result = await ProjectGraphView(project.GraphViewCommand.createFrom(
+      buildProjectGraphViewCommand(options, correlationId),
+    ))
 
     return normalizeProjectGraphViewResult(result as Partial<ProjectGraphViewResultDTO>, correlationId)
   } catch (error) {
@@ -122,10 +129,9 @@ export async function saveProjectGraphLayout(
   const correlationId = command.correlationId || createCorrelationId('project-graph-layout-save')
 
   try {
-    const result = await ProjectGraphLayoutSave(project.SaveGraphLayoutCommand.createFrom({
-      ...command,
-      correlationId,
-    }))
+    const result = await ProjectGraphLayoutSave(project.SaveGraphLayoutCommand.createFrom(
+      normalizeProjectGraphLayoutSaveCommand(command, correlationId),
+    ))
 
     return normalizeProjectGraphViewResult(result as Partial<ProjectGraphViewResultDTO>, correlationId)
   } catch (error) {
@@ -150,11 +156,41 @@ export async function saveProjectGraphLayout(
   }
 }
 
+export function buildProjectGraphViewCommand(
+  options: number | ProjectGraphViewOptions | undefined,
+  correlationId: string,
+): ProjectGraphViewCommandDTO {
+  const resolvedOptions = typeof options === 'number'
+    ? { expectedGraphVersion: options }
+    : options || {}
+
+  return {
+    root: normalizeProjectRoot(resolvedOptions.root),
+    expectedGraphVersion: resolvedOptions.expectedGraphVersion,
+    correlationId,
+  }
+}
+
+export function normalizeProjectGraphLayoutSaveCommand(
+  command: ProjectGraphLayoutSaveCommandDTO,
+  correlationId: string,
+): ProjectGraphLayoutSaveCommandDTO {
+  return {
+    ...command,
+    root: normalizeProjectRoot(command.root),
+    correlationId,
+  }
+}
+
+export function projectOperationRoot(action: ProjectOperationName): string {
+  return action === 'create' ? '' : DEFAULT_ALPHA_PROJECT_ROOT
+}
+
 function callProjectOperation(action: ProjectOperationName, correlationId: string): Promise<unknown> {
   switch (action) {
     case 'create':
       return ProjectCreate(project.CreateProjectCommand.createFrom({
-        root: '',
+        root: projectOperationRoot(action),
         projectId: '',
         name: 'Tuyu Alpha Shell Project',
         type: 'series',
@@ -162,18 +198,18 @@ function callProjectOperation(action: ProjectOperationName, correlationId: strin
       }))
     case 'open':
       return ProjectOpen(project.OpenProjectCommand.createFrom({
-        root: '',
+        root: projectOperationRoot(action),
         takeover: false,
         correlationId,
       }))
     case 'save':
       return ProjectSave(project.SaveProjectCommand.createFrom({
-        root: '',
+        root: projectOperationRoot(action),
         correlationId,
       }))
     case 'health':
       return ProjectHealth(project.CheckProjectHealthCommand.createFrom({
-        root: '',
+        root: projectOperationRoot(action),
         correlationId,
       }))
   }
