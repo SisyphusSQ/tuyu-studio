@@ -167,6 +167,31 @@ func (s *Service) ProjectScriptDocumentLoad(command project.LoadScriptDocumentCo
 	return s.projectStore.LoadScriptDocument(command)
 }
 
+func (s *Service) ProjectScriptSceneConfirm(command project.ConfirmScriptSceneCommand) project.ScriptSceneCandidateResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.ConfirmScriptScene(command)
+}
+
+func (s *Service) ProjectShotCandidateSave(command project.SaveShotCandidateCommand) project.ScriptSceneCandidateResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.SaveShotCandidate(command)
+}
+
+func (s *Service) ProjectShotCandidatesList(command project.ListShotCandidatesCommand) project.ScriptSceneCandidateResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.ListShotCandidates(command)
+}
+
+func (s *Service) ProjectShotCandidateConfirm(command project.ConfirmShotCandidateCommand) project.ScriptSceneCandidateResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.ConfirmShotCandidate(command)
+}
+
+func (s *Service) ProjectShotCandidateReject(command project.RejectShotCandidateCommand) project.ScriptSceneCandidateResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.RejectShotCandidate(command)
+}
+
 func (s *Service) WorkbenchProbe(command WorkbenchProbeCommand) WorkbenchProbeResult {
 	now := time.Now().UTC()
 	checkedAt := now.Format(time.RFC3339)

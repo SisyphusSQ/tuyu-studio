@@ -42,8 +42,10 @@ import {
   type ProjectOperationName,
   type ProjectOperationResultDTO,
   type RuntimeEventDTO,
+  type ScriptSceneCandidateResultDTO,
   type ScriptDocumentDTO,
   type ScriptDocumentResultDTO,
+  type ShotCandidateDTO,
   type WorkbenchProbeMode,
   type WorkbenchStatusDTO,
 } from './api/dto'
@@ -53,6 +55,14 @@ import {
   loadScriptDocument,
   saveScriptDocument,
 } from './api/scriptDocument'
+import {
+  confirmScriptScene,
+  confirmShotCandidate,
+  listShotCandidates,
+  nextShotCandidatesAfterResult,
+  rejectShotCandidate,
+  saveShotCandidate,
+} from './api/scriptSceneCandidates'
 import { runProjectGraphView, runProjectOperation, runWorkbenchProbe, saveProjectGraphLayout } from './api/workbench'
 import GraphCanvas from './components/GraphCanvas.vue'
 import {
@@ -107,6 +117,29 @@ const scriptSynopsis = ref('')
 const scriptLoading = ref(false)
 const scriptSaving = ref(false)
 const scriptDirty = ref(false)
+const sceneResult = ref<ScriptSceneCandidateResultDTO>()
+const shotCandidates = ref<ShotCandidateDTO[]>([])
+const sceneId = ref('scene_001')
+const sceneTitle = ref('Opening Scene')
+const sceneLocation = ref('Laneway market')
+const sceneTimeOfDay = ref('evening')
+const sceneCharacters = ref('Mina')
+const sceneProps = ref('Lantern')
+const sceneAction = ref('')
+const sceneEmotionalBeat = ref('')
+const sceneStartLine = ref(1)
+const sceneEndLine = ref(1)
+const sceneAllowOverlap = ref(false)
+const sceneSaving = ref(false)
+const candidateId = ref('candidate_scene_001_001')
+const candidateIndex = ref(1)
+const candidateDuration = ref(5)
+const candidateDescription = ref('')
+const candidateCharacters = ref('Mina')
+const candidateStartLine = ref(1)
+const candidateEndLine = ref(1)
+const candidateSaving = ref(false)
+const candidateAction = ref('')
 
 const railItems = [
   { key: 'assets', icon: () => h(DatabaseOutlined), label: 'Assets' },
@@ -145,6 +178,7 @@ const visibleErrors = computed(() => [
   graphResult.value?.error,
   projectResult.value?.error,
   scriptResult.value?.error,
+  sceneResult.value?.error,
   probeError.value,
   ...graphErrors.value,
 ].filter((error): error is AppErrorDTO => Boolean(error)))
@@ -161,6 +195,7 @@ const latestEventLabel = computed(() => latestEventSummary(
   [
     ...(projectResult.value?.events || []),
     ...(scriptResult.value?.events || []),
+    ...(sceneResult.value?.events || []),
   ],
   runtimeEvents.value,
 ))
@@ -206,6 +241,14 @@ const scriptStatusType = computed(() => {
   return scriptDirty.value ? 'warning' : 'info'
 })
 const scriptRecoveryActions = computed(() => scriptResult.value?.error?.recoveryActions || [])
+const sceneRecoveryActions = computed(() => sceneResult.value?.error?.recoveryActions || [])
+const scriptScenes = computed(() => scriptDocument.value?.scenes || [])
+const activeSceneId = computed(() => sceneId.value.trim() || scriptScenes.value[0]?.id || '')
+const candidateSummary = computed(() => {
+  const accepted = shotCandidates.value.filter((candidate) => candidate.status === 'accepted').length
+  const rejected = shotCandidates.value.filter((candidate) => candidate.status === 'rejected').length
+  return `${shotCandidates.value.length} rows · ${accepted} accepted · ${rejected} rejected`
+})
 
 onMounted(() => {
   void loadProjectGraph()
@@ -321,6 +364,7 @@ async function saveCurrentScriptDocument() {
   })
   if (scriptResult.value.document) {
     hydrateScriptForm(scriptResult.value.document)
+    await loadCandidateRows()
   } else {
     scriptDirty.value = true
   }
@@ -340,6 +384,7 @@ async function importScriptSourceAsset() {
   })
   if (scriptResult.value.document) {
     hydrateScriptForm(scriptResult.value.document)
+    await loadCandidateRows()
   }
   activeInspectorTab.value = 'tasks'
   scriptSaving.value = false
@@ -352,9 +397,85 @@ async function loadCurrentScriptDocument() {
   })
   if (scriptResult.value.document) {
     hydrateScriptForm(scriptResult.value.document)
+    await loadCandidateRows()
   }
   activeInspectorTab.value = 'tasks'
   scriptLoading.value = false
+}
+
+async function confirmCurrentScriptScene() {
+  sceneSaving.value = true
+  sceneResult.value = await confirmScriptScene({
+    sceneId: sceneId.value,
+    title: sceneTitle.value,
+    location: sceneLocation.value,
+    timeOfDay: sceneTimeOfDay.value,
+    characters: splitList(sceneCharacters.value),
+    props: splitList(sceneProps.value),
+    action: sceneAction.value,
+    emotionalBeat: sceneEmotionalBeat.value,
+    sourceRange: { startLine: sceneStartLine.value, endLine: sceneEndLine.value },
+    allowOverlap: sceneAllowOverlap.value,
+  })
+  ingestSceneCandidateResult(sceneResult.value)
+  activeInspectorTab.value = 'tasks'
+  sceneSaving.value = false
+}
+
+async function saveCurrentShotCandidate() {
+  candidateSaving.value = true
+  sceneResult.value = await saveShotCandidate({
+    candidateId: candidateId.value,
+    scriptSceneId: activeSceneId.value,
+    index: candidateIndex.value,
+    durationSeconds: candidateDuration.value,
+    visualDescription: candidateDescription.value,
+    characterRefs: splitList(candidateCharacters.value).map((name) => ({ name })),
+    sourceRange: { startLine: candidateStartLine.value, endLine: candidateEndLine.value },
+  })
+  ingestSceneCandidateResult(sceneResult.value)
+  activeInspectorTab.value = 'tasks'
+  candidateSaving.value = false
+}
+
+async function loadCandidateRows() {
+  candidateAction.value = 'load'
+  sceneResult.value = await listShotCandidates(undefined, scriptDocument.value?.id || DEFAULT_SCRIPT_DOCUMENT_ID)
+  ingestSceneCandidateResult(sceneResult.value)
+  candidateAction.value = ''
+}
+
+async function confirmCandidateRow(candidate: ShotCandidateDTO) {
+  candidateAction.value = candidate.id
+  sceneResult.value = await confirmShotCandidate({
+    candidateId: candidate.id,
+    confirmedBy: 'local_user',
+  })
+  ingestSceneCandidateResult(sceneResult.value)
+  activeInspectorTab.value = 'tasks'
+  candidateAction.value = ''
+}
+
+async function rejectCandidateRow(candidate: ShotCandidateDTO) {
+  candidateAction.value = candidate.id
+  sceneResult.value = await rejectShotCandidate({
+    candidateId: candidate.id,
+    rejectionReason: 'manual reject',
+  })
+  ingestSceneCandidateResult(sceneResult.value)
+  activeInspectorTab.value = 'tasks'
+  candidateAction.value = ''
+}
+
+function ingestSceneCandidateResult(result: ScriptSceneCandidateResultDTO) {
+  if (result.document) {
+    hydrateScriptForm(result.document)
+  }
+  shotCandidates.value = nextShotCandidatesAfterResult(shotCandidates.value, result)
+}
+
+function splitList(value: string): string[] {
+  return value.split(',').map((item) => item.trim()).filter(Boolean)
 }
 </script>
 
@@ -381,7 +502,7 @@ async function loadCurrentScriptDocument() {
           </Tag>
           <Badge :status="graphCanvas ? 'success' : 'default'" :text="`Graph ${graphCanvas?.version ?? '-'}`" />
           <Tag :color="healthStatusTone">Health {{ healthStatus }}</Tag>
-          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0) + (scriptResult?.events.length || 0)}`" />
+          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0) + (scriptResult?.events.length || 0) + (sceneResult?.events.length || 0)}`" />
           <Segmented
             v-model:value="themeMode"
             class="theme-switch"
@@ -569,6 +690,124 @@ async function loadCurrentScriptDocument() {
                     </ListItem>
                   </template>
                 </List>
+
+                <div class="scene-editor">
+                  <div class="script-editor-bar">
+                    <Tag>{{ scriptScenes.length }} scenes</Tag>
+                    <Tag>{{ candidateSummary }}</Tag>
+                  </div>
+
+                  <label class="script-field">
+                    <span>Scene id</span>
+                    <input v-model="sceneId" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <label class="script-field">
+                    <span>Scene title</span>
+                    <input v-model="sceneTitle" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <label class="script-field">
+                    <span>Location</span>
+                    <input v-model="sceneLocation" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <div class="line-range-grid">
+                    <label class="script-field">
+                      <span>Start line</span>
+                      <input v-model.number="sceneStartLine" class="script-input" type="number" min="1">
+                    </label>
+                    <label class="script-field">
+                      <span>End line</span>
+                      <input v-model.number="sceneEndLine" class="script-input" type="number" min="1">
+                    </label>
+                  </div>
+                  <label class="script-field">
+                    <span>Characters</span>
+                    <input v-model="sceneCharacters" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <label class="script-field">
+                    <span>Props</span>
+                    <input v-model="sceneProps" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <label class="script-field">
+                    <span>Action</span>
+                    <textarea v-model="sceneAction" class="script-textarea script-textarea--short" spellcheck="false" />
+                  </label>
+                  <label class="script-field">
+                    <span>Emotional beat</span>
+                    <input v-model="sceneEmotionalBeat" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <label class="check-row">
+                    <input v-model="sceneAllowOverlap" type="checkbox">
+                    <span>Allow overlap</span>
+                  </label>
+                  <div class="script-actions">
+                    <Button size="small" type="primary" :loading="sceneSaving" :disabled="!scriptRawText.trim()" @click="confirmCurrentScriptScene">
+                      Confirm scene
+                    </Button>
+                    <Button size="small" :loading="candidateAction === 'load'" @click="loadCandidateRows">
+                      Load candidates
+                    </Button>
+                  </div>
+                </div>
+
+                <div class="scene-editor">
+                  <label class="script-field">
+                    <span>Candidate id</span>
+                    <input v-model="candidateId" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <div class="line-range-grid">
+                    <label class="script-field">
+                      <span>Shot index</span>
+                      <input v-model.number="candidateIndex" class="script-input" type="number" min="1">
+                    </label>
+                    <label class="script-field">
+                      <span>Seconds</span>
+                      <input v-model.number="candidateDuration" class="script-input" type="number" min="1">
+                    </label>
+                  </div>
+                  <div class="line-range-grid">
+                    <label class="script-field">
+                      <span>Start line</span>
+                      <input v-model.number="candidateStartLine" class="script-input" type="number" min="1">
+                    </label>
+                    <label class="script-field">
+                      <span>End line</span>
+                      <input v-model.number="candidateEndLine" class="script-input" type="number" min="1">
+                    </label>
+                  </div>
+                  <label class="script-field">
+                    <span>Character refs</span>
+                    <input v-model="candidateCharacters" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <label class="script-field">
+                    <span>Visual description</span>
+                    <textarea v-model="candidateDescription" class="script-textarea script-textarea--short" spellcheck="false" />
+                  </label>
+                  <div class="script-actions">
+                    <Button size="small" type="primary" :loading="candidateSaving" :disabled="!activeSceneId || !candidateDescription.trim()" @click="saveCurrentShotCandidate">
+                      Save candidate
+                    </Button>
+                  </div>
+                  <Alert
+                    v-if="sceneResult"
+                    class="service-alert"
+                    :type="sceneResult.ok ? 'success' : 'error'"
+                    show-icon
+                    :message="sceneResult.error?.userMessage || candidateSummary"
+                    :description="sceneResult.error ? `${sceneResult.error.code} · ${sceneResult.error.correlationId}` : latestEventLabel"
+                  />
+                  <List
+                    v-if="sceneRecoveryActions.length"
+                    class="recovery-list"
+                    size="small"
+                    :data-source="sceneRecoveryActions"
+                  >
+                    <template #renderItem="{ item }">
+                      <ListItem>
+                        <span>{{ item }}</span>
+                      </ListItem>
+                    </template>
+                  </List>
+                </div>
               </div>
             </TabPane>
             <TabPane key="blueprint" tab="Blueprint">
@@ -656,6 +895,50 @@ async function loadCurrentScriptDocument() {
               @selection="(nodes) => (selectedGraphNodes = nodes)"
               @viewport="updateCanvasViewport"
             />
+            <section v-if="shotCandidates.length" class="script-expansion-overlay" aria-label="Script expansion table">
+              <div class="script-expansion-header">
+                <div>
+                  <p class="eyebrow">Script expansion</p>
+                  <h2>{{ activeSceneId || 'Scene candidates' }}</h2>
+                </div>
+                <Tag>{{ candidateSummary }}</Tag>
+              </div>
+              <div class="script-expansion-scroll">
+                <table class="script-expansion-table">
+                  <thead>
+                    <tr>
+                      <th>Shot</th>
+                      <th>Seconds</th>
+                      <th>Visual</th>
+                      <th>Characters</th>
+                      <th>Range</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="candidate in shotCandidates" :key="candidate.id">
+                      <td>{{ candidate.index }}</td>
+                      <td>{{ candidate.durationSeconds }}</td>
+                      <td :title="candidate.visualDescription">{{ candidate.visualDescription }}</td>
+                      <td>{{ candidate.characterRefs.map((ref) => ref.name || ref.characterId).join(', ') || '-' }}</td>
+                      <td>{{ candidate.sourceRange.startLine }}-{{ candidate.sourceRange.endLine }}</td>
+                      <td><Tag>{{ candidate.status }}</Tag></td>
+                      <td>
+                        <div class="table-actions">
+                          <Button size="small" :loading="candidateAction === candidate.id" :disabled="candidate.status === 'accepted'" @click="confirmCandidateRow(candidate)">
+                            Confirm
+                          </Button>
+                          <Button size="small" :disabled="candidate.status === 'accepted'" @click="rejectCandidateRow(candidate)">
+                            Reject
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
           </section>
         </LayoutContent>
 
@@ -1011,7 +1294,23 @@ async function loadCurrentScriptDocument() {
                     </ListItem>
                   </template>
                 </List>
-                <div v-if="!runtimeEvents.length && !projectResult?.events.length && !scriptResult?.events.length" class="placeholder-list">
+                <List v-if="sceneResult?.events.length" class="event-list" size="small" :data-source="sceneResult.events">
+                  <template #renderItem="{ item }">
+                    <ListItem>
+                      <ListItemMeta>
+                        <template #title>
+                          <strong class="event-title">
+                            {{ item.eventType }} · {{ item.state }}
+                          </strong>
+                        </template>
+                        <template #description>
+                          <span>{{ item.summary }} · {{ item.createdAt }}</span>
+                        </template>
+                      </ListItemMeta>
+                    </ListItem>
+                  </template>
+                </List>
+                <div v-if="!runtimeEvents.length && !projectResult?.events.length && !scriptResult?.events.length && !sceneResult?.events.length" class="placeholder-list">
                   <strong>No run records</strong>
                   <span>{{ latestEventLabel }}</span>
                 </div>
