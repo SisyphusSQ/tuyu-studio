@@ -1,0 +1,20 @@
+{
+  "id": "char_mina",
+  "displayName": "Mina",
+  "shortDescription": "A practical young courier who notices small details under pressure.",
+  "visualRules": [
+    "short black hair",
+    "yellow raincoat",
+    "canvas shoulder bag"
+  ],
+  "referenceAssetIds": [
+    "asset_ref_character_mina"
+  ],
+  "referencePaths": [
+    "assets/refs/character-mina.txt"
+  ],
+  "thumbnailPath": "assets/thumbnails/thumb-character-mina.txt",
+  "continuityRuleIds": [
+    "rule_char_mina_raincoat"
+  ]
+}

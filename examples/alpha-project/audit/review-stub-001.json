@@ -1,0 +1,8 @@
+{
+  "id": "review_stub_001",
+  "targetType": "package",
+  "targetId": "pkg_scene001_shot001",
+  "decision": "pending",
+  "notes": "Reserved for downstream review flow verification.",
+  "createdAt": "2026-05-20T05:40:00Z"
+}

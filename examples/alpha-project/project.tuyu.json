@@ -1,0 +1,161 @@
+{
+  "schemaVersion": "1.0.0",
+  "project": {
+    "id": "proj_alpha_fixture",
+    "name": "Tuyu Alpha Fixture",
+    "type": "series",
+    "createdAt": "2026-05-20T05:40:00Z",
+    "updatedAt": "2026-05-20T05:40:00Z"
+  },
+  "paths": {
+    "root": ".",
+    "characters": "characters",
+    "scenes": "scenes",
+    "props": "props",
+    "shots": "shots",
+    "prompts": "prompts",
+    "promptRuns": "prompts/runs",
+    "assets": "assets",
+    "assetInputs": "assets/inputs",
+    "assetRefs": "assets/refs",
+    "assetOutputs": "assets/outputs",
+    "assetResults": "assets/results",
+    "assetThumbnails": "assets/thumbnails",
+    "packages": "packages",
+    "audit": "audit",
+    "backups": "backups",
+    "locks": "locks"
+  },
+  "defaults": {
+    "providerProfileId": "provider_manual_handoff",
+    "language": "zh",
+    "aspectRatio": "9:16"
+  },
+  "integrity": {
+    "lastCleanShutdown": true,
+    "lastGraphVersion": 3,
+    "lastHealthCheckAt": "2026-05-20T05:40:00Z"
+  },
+  "graph": {
+    "version": 3,
+    "nodes": [
+      {
+        "id": "node_script_source",
+        "kind": "script_document",
+        "refId": "assets/inputs/script-source.md",
+        "status": "candidate_ready"
+      },
+      {
+        "id": "node_character_mina",
+        "kind": "character",
+        "refId": "characters/char-mina.json",
+        "status": "ready"
+      },
+      {
+        "id": "node_scene_laneway",
+        "kind": "scene",
+        "refId": "scenes/scene-laneway-market.json",
+        "status": "ready"
+      },
+      {
+        "id": "node_prop_lantern",
+        "kind": "prop",
+        "refId": "props/prop-red-lantern.json",
+        "status": "ready"
+      },
+      {
+        "id": "node_shot_001",
+        "kind": "shot",
+        "refId": "shots/shot-001.json",
+        "status": "pending_confirmation"
+      },
+      {
+        "id": "node_shot_002",
+        "kind": "shot",
+        "refId": "shots/shot-002.json",
+        "status": "context_ready"
+      },
+      {
+        "id": "node_package_001",
+        "kind": "package",
+        "refId": "packages/scene-001/shot-001-package/manifest.json",
+        "status": "draft"
+      },
+      {
+        "id": "node_run_001",
+        "kind": "prompt_run",
+        "refId": "prompts/runs/mock-run-001.json",
+        "status": "not_submitted"
+      },
+      {
+        "id": "node_review_001",
+        "kind": "review",
+        "refId": "audit/review-stub-001.json",
+        "status": "pending"
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge_script_to_shot_001",
+        "source": "node_script_source",
+        "target": "node_shot_001",
+        "kind": "candidate_source"
+      },
+      {
+        "id": "edge_script_to_shot_002",
+        "source": "node_script_source",
+        "target": "node_shot_002",
+        "kind": "candidate_source"
+      },
+      {
+        "id": "edge_character_to_shot_001",
+        "source": "node_character_mina",
+        "target": "node_shot_001",
+        "kind": "context"
+      },
+      {
+        "id": "edge_scene_to_shot_001",
+        "source": "node_scene_laneway",
+        "target": "node_shot_001",
+        "kind": "context"
+      },
+      {
+        "id": "edge_prop_to_shot_002",
+        "source": "node_prop_lantern",
+        "target": "node_shot_002",
+        "kind": "context"
+      },
+      {
+        "id": "edge_shot_to_package",
+        "source": "node_shot_001",
+        "target": "node_package_001",
+        "kind": "handoff_candidate"
+      },
+      {
+        "id": "edge_package_to_review",
+        "source": "node_package_001",
+        "target": "node_review_001",
+        "kind": "review_target"
+      }
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "principles": {
+    "summary": "Warm city fantasy tone with clear continuity and manual handoff.",
+    "lockedRules": [
+      "No provider call is made by this fixture.",
+      "All fixture paths stay project-relative."
+    ]
+  },
+  "styleBible": {
+    "summary": "Rain-reflection lighting, compact vertical framing, soft practical light.",
+    "visualRules": [
+      "Keep Mina's yellow raincoat consistent.",
+      "Use warm lantern highlights against cool pavement."
+    ]
+  }
+}

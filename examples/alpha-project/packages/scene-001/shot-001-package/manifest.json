@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectId": "proj_alpha_fixture",
+  "sceneId": "scene_laneway_market",
+  "shotId": "shot_001",
+  "packageId": "pkg_scene001_shot001",
+  "packageVersion": 1,
+  "providerProfileId": "provider_manual_handoff",
+  "generationPackageStatus": "draft",
+  "promptPath": "prompt.txt",
+  "continuityPath": "continuity.md",
+  "uploadChecklistPath": "upload_checklist.md",
+  "references": [
+    "references/character-mina.txt",
+    "references/scene-laneway-market.txt"
+  ],
+  "createdAt": "2026-05-20T05:40:00Z"
+}

@@ -1,0 +1,18 @@
+{
+  "id": "prop_red_lantern",
+  "displayName": "Red Lantern",
+  "shortDescription": "A small red paper lantern used as a practical light cue.",
+  "visualRules": [
+    "paper texture remains visible",
+    "brass hook faces camera when featured"
+  ],
+  "referenceAssetIds": [
+    "asset_ref_prop_red_lantern"
+  ],
+  "referencePaths": [
+    "assets/refs/prop-red-lantern.txt"
+  ],
+  "continuityRuleIds": [
+    "rule_prop_lantern_position"
+  ]
+}

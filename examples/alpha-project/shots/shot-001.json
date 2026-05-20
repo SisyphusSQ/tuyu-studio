@@ -1,0 +1,38 @@
+{
+  "id": "shot_001",
+  "sceneId": "scene_laneway_market",
+  "title": "Mina reaches the stall shelter",
+  "status": "pending_confirmation",
+  "index": 1,
+  "durationSeconds": 6,
+  "aspectRatio": "9:16",
+  "shotType": "medium",
+  "cameraMovement": "slow push",
+  "description": "Mina steps under the food stall awning while rainwater drips behind her.",
+  "action": "She catches her breath and notices the last bowl of soup.",
+  "emotion": "relieved and curious",
+  "characterIds": [
+    "char_mina"
+  ],
+  "sceneIdRefs": [
+    "scene_laneway_market"
+  ],
+  "propIds": [
+    "prop_red_lantern"
+  ],
+  "referenceAssetIds": [
+    "asset_ref_character_mina",
+    "asset_ref_scene_laneway_market"
+  ],
+  "sourceRange": {
+    "startLine": 5,
+    "endLine": 5
+  },
+  "continuityRuleIds": [
+    "rule_char_mina_raincoat",
+    "rule_scene_wet_pavement"
+  ],
+  "packageIds": [
+    "pkg_scene001_shot001"
+  ]
+}

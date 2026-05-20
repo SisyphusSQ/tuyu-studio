@@ -1,0 +1,71 @@
+{
+  "files": [
+    {
+      "path": "assets/inputs/script-source.md",
+      "sha256": "d062d097524f3e87ee16d9353e131886a43ac998dfe38750632413bd44c26c2a",
+      "affectedObjects": [
+        "script_doc_alpha"
+      ]
+    },
+    {
+      "path": "assets/refs/character-mina.txt",
+      "sha256": "9dde6b0e39dfc2c43cd792b357133bb603b60ea37f8a8b11c730b6c0541146ed",
+      "affectedObjects": [
+        "char_mina",
+        "shot_001"
+      ]
+    },
+    {
+      "path": "assets/refs/scene-laneway-market.txt",
+      "sha256": "90894f272bc4db26c2bb8340935a0632082b84134d42f2044a45fe2b18344d7d",
+      "affectedObjects": [
+        "scene_laneway_market",
+        "shot_001",
+        "shot_002"
+      ]
+    },
+    {
+      "path": "assets/refs/prop-red-lantern.txt",
+      "sha256": "91dbafa70640b54348fdc6465a16aa5dfce63c81b278417ca45eff53a242f0d5",
+      "affectedObjects": [
+        "prop_red_lantern",
+        "shot_002"
+      ]
+    },
+    {
+      "path": "assets/thumbnails/thumb-character-mina.txt",
+      "sha256": "620011f4cec35810463ca096db9f1e7342cf8b992d59f719a75e2d9f24d71875",
+      "affectedObjects": [
+        "char_mina"
+      ]
+    },
+    {
+      "path": "assets/thumbnails/thumb-scene-laneway-market.txt",
+      "sha256": "1384de396949974ebe51e5a1a50c62602e7208578c5337e5d746ceacd1b122a5",
+      "affectedObjects": [
+        "scene_laneway_market"
+      ]
+    },
+    {
+      "path": "assets/thumbnails/thumb-shot-001.txt",
+      "sha256": "c5454d18c66a097d672280d3e638cf28f30f92354c78166a15cb5eccbdf12315",
+      "affectedObjects": [
+        "shot_001"
+      ]
+    },
+    {
+      "path": "assets/outputs/package-preview.txt",
+      "sha256": "17b54646526adb2b64ce52ead0029a2db83451f68d377d53baae6e1d0219ad19",
+      "affectedObjects": [
+        "pkg_scene001_shot001"
+      ]
+    },
+    {
+      "path": "assets/results/mock-result-summary.md",
+      "sha256": "8e7e515fee144eba1eb0ef186e4e7f864713adb7c447a5e8702504a958f9052f",
+      "affectedObjects": [
+        "review_stub_001"
+      ]
+    }
+  ]
+}
