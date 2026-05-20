@@ -118,6 +118,7 @@ func (s *Service) Info() Info {
 			"project_asset_binding_unlock",
 			"project_generation_package_export",
 			"project_mock_run",
+			"project_result_review",
 		},
 	}
 }
@@ -281,6 +282,31 @@ func (s *Service) ProjectMockRunCancel(command project.MockRunCommand) project.M
 func (s *Service) ProjectMockRunRetry(command project.MockRunCommand) project.MockRunResult {
 	command.Root = s.projectRoot(command.Root)
 	return s.projectStore.RetryMockRun(command)
+}
+
+func (s *Service) ProjectResultImport(command project.ImportResultCommand) project.ResultReviewResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.ImportResult(command)
+}
+
+func (s *Service) ProjectResultsList(command project.ListResultsCommand) project.ResultReviewResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.ListResults(command)
+}
+
+func (s *Service) ProjectResultTrace(command project.TraceResultCommand) project.ResultReviewResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.TraceResult(command)
+}
+
+func (s *Service) ProjectResultReviewUpdate(command project.UpdateResultReviewCommand) project.ResultReviewResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.UpdateResultReview(command)
+}
+
+func (s *Service) ProjectResultRebind(command project.RebindResultCommand) project.ResultReviewResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.RebindResult(command)
 }
 
 func (s *Service) WorkbenchProbe(command WorkbenchProbeCommand) WorkbenchProbeResult {

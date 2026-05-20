@@ -12,6 +12,9 @@ export type AssetBindingTargetType = 'character' | 'scene' | 'prop'
 export type AssetBindingDuplicatePolicy = 'cancel' | 'reuse'
 export type ContinuityRuleSeverity = 'blocking' | 'warning' | 'suggestion'
 export type GenerationPackageStatus = 'draft' | 'ready' | 'handed_off' | 'result_received' | 'stale' | 'invalid' | string
+export type ResultDuplicatePolicy = 'cancel' | 'reuse' | 'new_take'
+export type ResultReviewStatus = 'pending' | 'approved' | 'needs_revision' | 'rejected' | string
+export type ResultWorkflowStatus = 'binding_pending' | 'review_pending' | 'approved' | 'needs_revision' | 'rejected' | 'missing_file' | string
 
 export interface AppErrorDTO {
   code: string
@@ -792,6 +795,118 @@ export interface MockRunResultDTO {
   events: RuntimeEventDTO[]
 }
 
+export interface ImportResultCommandDTO {
+  root?: string
+  sourcePath?: string
+  shotId?: string
+  packageId?: string
+  runId?: string
+  duplicatePolicy?: ResultDuplicatePolicy
+  createdBy?: string
+  correlationId?: string
+}
+
+export interface ListResultsCommandDTO {
+  root?: string
+  resultId?: string
+  shotId?: string
+  packageId?: string
+  correlationId?: string
+}
+
+export interface TraceResultCommandDTO {
+  root?: string
+  resultId: string
+  correlationId?: string
+}
+
+export interface UpdateResultReviewCommandDTO {
+  root?: string
+  resultId: string
+  reviewStatus: ResultReviewStatus
+  reviewNotes?: string
+  reason?: string
+  correlationId?: string
+}
+
+export interface RebindResultCommandDTO {
+  root?: string
+  resultId: string
+  shotId?: string
+  packageId?: string
+  unbindShot?: boolean
+  unbindPackage?: boolean
+  reason: string
+  correlationId?: string
+}
+
+export interface ResultSourceDTO {
+  kind: string
+  sourcePath?: string
+  importedName?: string
+  digest?: string
+  mimeType?: string
+  runId?: string
+  packageId?: string
+}
+
+export interface ResultTakeHistoryDTO {
+  shotId?: string
+  packageId?: string
+  takeNumber: number
+  reason?: string
+  createdAt: string
+}
+
+export interface VideoResultDTO {
+  id: string
+  projectId: string
+  shotId?: string
+  packageId?: string
+  takeNumber: number
+  assetId: string
+  relativePath: string
+  recordPath: string
+  source: ResultSourceDTO
+  status: ResultWorkflowStatus
+  reviewStatus: ResultReviewStatus
+  reviewNotes?: string
+  reviewReason?: string
+  bindingState: string
+  missing: boolean
+  takeHistory: ResultTakeHistoryDTO[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ResultDuplicateDTO {
+  existingResultId: string
+  existingAssetId: string
+  digest: string
+  mimeType: string
+  policy: string
+}
+
+export interface ResultTraceDTO {
+  result?: VideoResultDTO
+  asset?: AssetDTO
+  shot?: ShotCardDTO
+  package?: GenerationPackageDTO
+  run?: MockRunDTO
+  recoveryActions: string[]
+}
+
+export interface ResultReviewResultDTO {
+  ok: boolean
+  result?: VideoResultDTO
+  results: VideoResultDTO[]
+  trace?: ResultTraceDTO
+  duplicate?: ResultDuplicateDTO
+  health?: HealthReportDTO
+  error?: AppErrorDTO
+  events: ProjectEventDTO[]
+}
+
 export interface ScriptSceneCandidateResultDTO {
   ok: boolean
   document?: ScriptDocumentDTO
@@ -1203,6 +1318,45 @@ export function normalizeMockRunResult(
   }
 }
 
+export function normalizeResultReviewResult(
+  result: Partial<ResultReviewResultDTO> | null | undefined,
+  correlationId: string,
+): ResultReviewResultDTO {
+  if (!result) {
+    return {
+      ok: false,
+      results: [],
+      error: normalizeUnknownError(new Error('empty result review response'), correlationId),
+      events: [],
+    }
+  }
+
+  const events = Array.isArray(result.events)
+    ? result.events.map((event) => ({
+      ...event,
+      error: event.error ? normalizeAppError(event.error, correlationId) : undefined,
+      nextActions: Array.isArray(event.nextActions) ? event.nextActions : [],
+    }))
+    : []
+  const health = result.health
+    ? {
+      ...result.health,
+      items: Array.isArray(result.health.items) ? result.health.items : [],
+    }
+    : undefined
+
+  return {
+    ok: Boolean(result.ok),
+    result: result.result ? normalizeVideoResult(result.result) : undefined,
+    results: Array.isArray(result.results) ? result.results.map(normalizeVideoResult) : [],
+    trace: result.trace ? normalizeResultTrace(result.trace) : undefined,
+    duplicate: result.duplicate,
+    health,
+    error: result.error ? normalizeAppError(result.error, correlationId) : undefined,
+    events,
+  }
+}
+
 function normalizeProjectCanvas(canvas: ProjectCanvasDTO): ProjectCanvasDTO {
   return {
     ...canvas,
@@ -1529,6 +1683,56 @@ function normalizeMockRunOutput(output: Partial<MockRunOutputDTO>): MockRunOutpu
     mimeType: output.mimeType || '',
     sizeBytes: Number(output.sizeBytes || 0),
     summary: output.summary || '',
+  }
+}
+
+function normalizeVideoResult(result: Partial<VideoResultDTO>): VideoResultDTO {
+  return {
+    id: result.id || '',
+    projectId: result.projectId || '',
+    shotId: result.shotId,
+    packageId: result.packageId,
+    takeNumber: Number(result.takeNumber || 0),
+    assetId: result.assetId || '',
+    relativePath: result.relativePath || '',
+    recordPath: result.recordPath || '',
+    source: {
+      kind: result.source?.kind || 'local_file',
+      sourcePath: result.source?.sourcePath,
+      importedName: result.source?.importedName,
+      digest: result.source?.digest,
+      mimeType: result.source?.mimeType,
+      runId: result.source?.runId,
+      packageId: result.source?.packageId,
+    },
+    status: result.status || 'binding_pending',
+    reviewStatus: result.reviewStatus || 'pending',
+    reviewNotes: result.reviewNotes,
+    reviewReason: result.reviewReason,
+    bindingState: result.bindingState || (result.shotId || result.packageId ? 'review_pending' : 'binding_pending'),
+    missing: Boolean(result.missing),
+    takeHistory: Array.isArray(result.takeHistory)
+      ? result.takeHistory.map((entry) => ({
+        shotId: entry.shotId,
+        packageId: entry.packageId,
+        takeNumber: Number(entry.takeNumber || 0),
+        reason: entry.reason,
+        createdAt: entry.createdAt || '',
+      }))
+      : [],
+    createdAt: result.createdAt || '',
+    updatedAt: result.updatedAt || '',
+  }
+}
+
+function normalizeResultTrace(trace: Partial<ResultTraceDTO>): ResultTraceDTO {
+  return {
+    result: trace.result ? normalizeVideoResult(trace.result) : undefined,
+    asset: trace.asset ? normalizeAsset(trace.asset) : undefined,
+    shot: trace.shot ? normalizeShotCard(trace.shot) : undefined,
+    package: trace.package ? normalizeGenerationPackage(trace.package) : undefined,
+    run: trace.run ? normalizeMockRun(trace.run) : undefined,
+    recoveryActions: Array.isArray(trace.recoveryActions) ? trace.recoveryActions : [],
   }
 }
 

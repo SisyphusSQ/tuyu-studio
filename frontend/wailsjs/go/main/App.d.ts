@@ -41,6 +41,16 @@ export function ProjectMockRunStart(arg1:project.MockRunCommand):Promise<project
 
 export function ProjectOpen(arg1:project.OpenProjectCommand):Promise<project.OperationResult>;
 
+export function ProjectResultImport(arg1:project.ImportResultCommand):Promise<project.ResultReviewResult>;
+
+export function ProjectResultRebind(arg1:project.RebindResultCommand):Promise<project.ResultReviewResult>;
+
+export function ProjectResultReviewUpdate(arg1:project.UpdateResultReviewCommand):Promise<project.ResultReviewResult>;
+
+export function ProjectResultTrace(arg1:project.TraceResultCommand):Promise<project.ResultReviewResult>;
+
+export function ProjectResultsList(arg1:project.ListResultsCommand):Promise<project.ResultReviewResult>;
+
 export function ProjectSave(arg1:project.SaveProjectCommand):Promise<project.OperationResult>;
 
 export function ProjectScriptDocumentLoad(arg1:project.LoadScriptDocumentCommand):Promise<project.ScriptDocumentResult>;

@@ -1379,6 +1379,32 @@ export namespace project {
 	        this.correlationId = source["correlationId"];
 	    }
 	}
+	export class ImportResultCommand {
+	    root: string;
+	    sourcePath?: string;
+	    shotId?: string;
+	    packageId?: string;
+	    runId?: string;
+	    duplicatePolicy?: string;
+	    createdBy?: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ImportResultCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.sourcePath = source["sourcePath"];
+	        this.shotId = source["shotId"];
+	        this.packageId = source["packageId"];
+	        this.runId = source["runId"];
+	        this.duplicatePolicy = source["duplicatePolicy"];
+	        this.createdBy = source["createdBy"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 	export class ListAssetBindingsCommand {
 	    root: string;
 	    correlationId: string;
@@ -1418,6 +1444,26 @@ export namespace project {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.root = source["root"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
+	export class ListResultsCommand {
+	    root: string;
+	    resultId?: string;
+	    shotId?: string;
+	    packageId?: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ListResultsCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.resultId = source["resultId"];
+	        this.shotId = source["shotId"];
+	        this.packageId = source["packageId"];
 	        this.correlationId = source["correlationId"];
 	    }
 	}
@@ -1784,6 +1830,32 @@ export namespace project {
 	        this.correlationId = source["correlationId"];
 	    }
 	}
+	export class RebindResultCommand {
+	    root: string;
+	    resultId: string;
+	    shotId?: string;
+	    packageId?: string;
+	    unbindShot?: boolean;
+	    unbindPackage?: boolean;
+	    reason: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new RebindResultCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.resultId = source["resultId"];
+	        this.shotId = source["shotId"];
+	        this.packageId = source["packageId"];
+	        this.unbindShot = source["unbindShot"];
+	        this.unbindPackage = source["unbindPackage"];
+	        this.reason = source["reason"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 
 	export class RejectShotCandidateCommand {
 	    root: string;
@@ -1805,6 +1877,329 @@ export namespace project {
 	        this.correlationId = source["correlationId"];
 	    }
 	}
+	export class ResultDuplicateDTO {
+	    existingResultId: string;
+	    existingAssetId: string;
+	    digest: string;
+	    mimeType: string;
+	    policy: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ResultDuplicateDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.existingResultId = source["existingResultId"];
+	        this.existingAssetId = source["existingAssetId"];
+	        this.digest = source["digest"];
+	        this.mimeType = source["mimeType"];
+	        this.policy = source["policy"];
+	    }
+	}
+	export class ShotCharacterRefDTO {
+	    characterId?: string;
+	    name: string;
+	    description?: string;
+	    referenceAssetId?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ShotCharacterRefDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.characterId = source["characterId"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.referenceAssetId = source["referenceAssetId"];
+	    }
+	}
+	export class ShotCardDTO {
+	    id: string;
+	    projectId: string;
+	    sceneId: string;
+	    sceneProfileId?: string;
+	    sceneIdRefs?: string[];
+	    sourceCandidateId: string;
+	    scriptSceneId: string;
+	    index: number;
+	    title: string;
+	    description: string;
+	    durationSeconds: number;
+	    aspectRatio: string;
+	    shotType: string;
+	    cameraMovement: string;
+	    action: string;
+	    emotion: string;
+	    emptySceneReason?: string;
+	    characterIds: string[];
+	    characterRefs: ShotCharacterRefDTO[];
+	    propIds?: string[];
+	    referenceAssetIds?: string[];
+	    sourceRange: ScriptSourceRange;
+	    status: string;
+	    confirmedBy: string;
+	    confirmedAt: string;
+	    overwrittenFields: string[];
+	    packageIds?: string[];
+	    resultIds?: string[];
+	    continuityRuleIds?: string[];
+	    createdAt: string;
+	    updatedAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ShotCardDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.projectId = source["projectId"];
+	        this.sceneId = source["sceneId"];
+	        this.sceneProfileId = source["sceneProfileId"];
+	        this.sceneIdRefs = source["sceneIdRefs"];
+	        this.sourceCandidateId = source["sourceCandidateId"];
+	        this.scriptSceneId = source["scriptSceneId"];
+	        this.index = source["index"];
+	        this.title = source["title"];
+	        this.description = source["description"];
+	        this.durationSeconds = source["durationSeconds"];
+	        this.aspectRatio = source["aspectRatio"];
+	        this.shotType = source["shotType"];
+	        this.cameraMovement = source["cameraMovement"];
+	        this.action = source["action"];
+	        this.emotion = source["emotion"];
+	        this.emptySceneReason = source["emptySceneReason"];
+	        this.characterIds = source["characterIds"];
+	        this.characterRefs = this.convertValues(source["characterRefs"], ShotCharacterRefDTO);
+	        this.propIds = source["propIds"];
+	        this.referenceAssetIds = source["referenceAssetIds"];
+	        this.sourceRange = this.convertValues(source["sourceRange"], ScriptSourceRange);
+	        this.status = source["status"];
+	        this.confirmedBy = source["confirmedBy"];
+	        this.confirmedAt = source["confirmedAt"];
+	        this.overwrittenFields = source["overwrittenFields"];
+	        this.packageIds = source["packageIds"];
+	        this.resultIds = source["resultIds"];
+	        this.continuityRuleIds = source["continuityRuleIds"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ResultTraceDTO {
+	    result?: VideoResultDTO;
+	    asset?: AssetDTO;
+	    shot?: ShotCardDTO;
+	    package?: GenerationPackageDTO;
+	    run?: MockRunDTO;
+	    recoveryActions: string[];
+
+	    static createFrom(source: any = {}) {
+	        return new ResultTraceDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.result = this.convertValues(source["result"], VideoResultDTO);
+	        this.asset = this.convertValues(source["asset"], AssetDTO);
+	        this.shot = this.convertValues(source["shot"], ShotCardDTO);
+	        this.package = this.convertValues(source["package"], GenerationPackageDTO);
+	        this.run = this.convertValues(source["run"], MockRunDTO);
+	        this.recoveryActions = source["recoveryActions"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ResultTakeHistory {
+	    shotId?: string;
+	    packageId?: string;
+	    takeNumber: number;
+	    reason?: string;
+	    createdAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ResultTakeHistory(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.shotId = source["shotId"];
+	        this.packageId = source["packageId"];
+	        this.takeNumber = source["takeNumber"];
+	        this.reason = source["reason"];
+	        this.createdAt = source["createdAt"];
+	    }
+	}
+	export class ResultSourceDTO {
+	    kind: string;
+	    sourcePath?: string;
+	    importedName?: string;
+	    digest?: string;
+	    mimeType?: string;
+	    runId?: string;
+	    packageId?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ResultSourceDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.sourcePath = source["sourcePath"];
+	        this.importedName = source["importedName"];
+	        this.digest = source["digest"];
+	        this.mimeType = source["mimeType"];
+	        this.runId = source["runId"];
+	        this.packageId = source["packageId"];
+	    }
+	}
+	export class VideoResultDTO {
+	    id: string;
+	    projectId: string;
+	    shotId?: string;
+	    packageId?: string;
+	    takeNumber: number;
+	    assetId: string;
+	    relativePath: string;
+	    recordPath: string;
+	    source: ResultSourceDTO;
+	    status: string;
+	    reviewStatus: string;
+	    reviewNotes?: string;
+	    reviewReason?: string;
+	    bindingState: string;
+	    missing: boolean;
+	    takeHistory: ResultTakeHistory[];
+	    createdAt: string;
+	    updatedAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new VideoResultDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.projectId = source["projectId"];
+	        this.shotId = source["shotId"];
+	        this.packageId = source["packageId"];
+	        this.takeNumber = source["takeNumber"];
+	        this.assetId = source["assetId"];
+	        this.relativePath = source["relativePath"];
+	        this.recordPath = source["recordPath"];
+	        this.source = this.convertValues(source["source"], ResultSourceDTO);
+	        this.status = source["status"];
+	        this.reviewStatus = source["reviewStatus"];
+	        this.reviewNotes = source["reviewNotes"];
+	        this.reviewReason = source["reviewReason"];
+	        this.bindingState = source["bindingState"];
+	        this.missing = source["missing"];
+	        this.takeHistory = this.convertValues(source["takeHistory"], ResultTakeHistory);
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ResultReviewResult {
+	    ok: boolean;
+	    result?: VideoResultDTO;
+	    results: VideoResultDTO[];
+	    trace?: ResultTraceDTO;
+	    duplicate?: ResultDuplicateDTO;
+	    health?: HealthReport;
+	    error?: OperationError;
+	    events: ProjectEvent[];
+
+	    static createFrom(source: any = {}) {
+	        return new ResultReviewResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.result = this.convertValues(source["result"], VideoResultDTO);
+	        this.results = this.convertValues(source["results"], VideoResultDTO);
+	        this.trace = this.convertValues(source["trace"], ResultTraceDTO);
+	        this.duplicate = this.convertValues(source["duplicate"], ResultDuplicateDTO);
+	        this.health = this.convertValues(source["health"], HealthReport);
+	        this.error = this.convertValues(source["error"], OperationError);
+	        this.events = this.convertValues(source["events"], ProjectEvent);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+
+
 	export class SaveContinuityRuleCommand {
 	    root: string;
 	    id?: string;
@@ -1913,24 +2308,6 @@ export namespace project {
 	        this.logline = source["logline"];
 	        this.synopsis = source["synopsis"];
 	        this.correlationId = source["correlationId"];
-	    }
-	}
-	export class ShotCharacterRefDTO {
-	    characterId?: string;
-	    name: string;
-	    description?: string;
-	    referenceAssetId?: string;
-
-	    static createFrom(source: any = {}) {
-	        return new ShotCharacterRefDTO(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.characterId = source["characterId"];
-	        this.name = source["name"];
-	        this.description = source["description"];
-	        this.referenceAssetId = source["referenceAssetId"];
 	    }
 	}
 	export class SaveShotCandidateCommand {
@@ -2095,96 +2472,6 @@ export namespace project {
 	        this.document = this.convertValues(source["document"], ScriptDocumentDTO);
 	        this.error = this.convertValues(source["error"], OperationError);
 	        this.events = this.convertValues(source["events"], ProjectEvent);
-	    }
-
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class ShotCardDTO {
-	    id: string;
-	    projectId: string;
-	    sceneId: string;
-	    sceneProfileId?: string;
-	    sceneIdRefs?: string[];
-	    sourceCandidateId: string;
-	    scriptSceneId: string;
-	    index: number;
-	    title: string;
-	    description: string;
-	    durationSeconds: number;
-	    aspectRatio: string;
-	    shotType: string;
-	    cameraMovement: string;
-	    action: string;
-	    emotion: string;
-	    emptySceneReason?: string;
-	    characterIds: string[];
-	    characterRefs: ShotCharacterRefDTO[];
-	    propIds?: string[];
-	    referenceAssetIds?: string[];
-	    sourceRange: ScriptSourceRange;
-	    status: string;
-	    confirmedBy: string;
-	    confirmedAt: string;
-	    overwrittenFields: string[];
-	    packageIds?: string[];
-	    resultIds?: string[];
-	    continuityRuleIds?: string[];
-	    createdAt: string;
-	    updatedAt: string;
-
-	    static createFrom(source: any = {}) {
-	        return new ShotCardDTO(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.id = source["id"];
-	        this.projectId = source["projectId"];
-	        this.sceneId = source["sceneId"];
-	        this.sceneProfileId = source["sceneProfileId"];
-	        this.sceneIdRefs = source["sceneIdRefs"];
-	        this.sourceCandidateId = source["sourceCandidateId"];
-	        this.scriptSceneId = source["scriptSceneId"];
-	        this.index = source["index"];
-	        this.title = source["title"];
-	        this.description = source["description"];
-	        this.durationSeconds = source["durationSeconds"];
-	        this.aspectRatio = source["aspectRatio"];
-	        this.shotType = source["shotType"];
-	        this.cameraMovement = source["cameraMovement"];
-	        this.action = source["action"];
-	        this.emotion = source["emotion"];
-	        this.emptySceneReason = source["emptySceneReason"];
-	        this.characterIds = source["characterIds"];
-	        this.characterRefs = this.convertValues(source["characterRefs"], ShotCharacterRefDTO);
-	        this.propIds = source["propIds"];
-	        this.referenceAssetIds = source["referenceAssetIds"];
-	        this.sourceRange = this.convertValues(source["sourceRange"], ScriptSourceRange);
-	        this.status = source["status"];
-	        this.confirmedBy = source["confirmedBy"];
-	        this.confirmedAt = source["confirmedAt"];
-	        this.overwrittenFields = source["overwrittenFields"];
-	        this.packageIds = source["packageIds"];
-	        this.resultIds = source["resultIds"];
-	        this.continuityRuleIds = source["continuityRuleIds"];
-	        this.createdAt = source["createdAt"];
-	        this.updatedAt = source["updatedAt"];
 	    }
 
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -2457,6 +2744,22 @@ export namespace project {
 		}
 	}
 
+	export class TraceResultCommand {
+	    root: string;
+	    resultId: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new TraceResultCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.resultId = source["resultId"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 	export class UnlockAssetBindingCommand {
 	    root: string;
 	    bindingId?: string;
@@ -2497,6 +2800,28 @@ export namespace project {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.root = source["root"];
 	        this.ruleId = source["ruleId"];
+	        this.reason = source["reason"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
+	export class UpdateResultReviewCommand {
+	    root: string;
+	    resultId: string;
+	    reviewStatus: string;
+	    reviewNotes?: string;
+	    reason?: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new UpdateResultReviewCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.resultId = source["resultId"];
+	        this.reviewStatus = source["reviewStatus"];
+	        this.reviewNotes = source["reviewNotes"];
 	        this.reason = source["reason"];
 	        this.correlationId = source["correlationId"];
 	    }

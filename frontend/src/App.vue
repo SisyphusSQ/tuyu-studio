@@ -53,6 +53,9 @@ import {
   type ProjectGraphViewResultDTO,
   type ProjectOperationName,
   type ProjectOperationResultDTO,
+  type ResultDuplicatePolicy,
+  type ResultReviewResultDTO,
+  type ResultReviewStatus,
   type RuntimeEventDTO,
   type ScriptSceneCandidateResultDTO,
   type ScriptDocumentDTO,
@@ -103,6 +106,16 @@ import {
 } from './api/shotContext'
 import { exportGenerationPackage } from './api/packageExport'
 import { cancelMockRun, retryMockRun, startMockRun } from './api/mockRun'
+import {
+  DEFAULT_RESULT_REBIND_REASON,
+  DEFAULT_RESULT_SHOT_ID,
+  DEFAULT_RESULT_SOURCE_PATH,
+  importResult,
+  listResults,
+  rebindResult,
+  traceResult,
+  updateResultReview,
+} from './api/resultReview'
 import { runProjectGraphView, runProjectOperation, runWorkbenchProbe, saveProjectGraphLayout } from './api/workbench'
 import GraphCanvas from './components/GraphCanvas.vue'
 import {
@@ -216,6 +229,21 @@ const packageAction = ref('')
 const packageShotId = ref('shot_002')
 const mockRunResult = ref<MockRunResultDTO>()
 const mockRunAction = ref('')
+const resultReviewResult = ref<ResultReviewResultDTO>()
+const resultAction = ref('')
+const resultSourcePath = ref(DEFAULT_RESULT_SOURCE_PATH)
+const resultShotId = ref(DEFAULT_RESULT_SHOT_ID)
+const resultPackageId = ref('')
+const resultRunId = ref('')
+const resultDuplicatePolicy = ref<ResultDuplicatePolicy>('cancel')
+const resultReviewStatus = ref<ResultReviewStatus>('approved')
+const resultReviewNotes = ref('Looks usable for alpha review.')
+const resultReviewReason = ref('alpha review decision')
+const resultRebindShotId = ref('shot_001')
+const resultRebindPackageId = ref('')
+const resultUnbindShot = ref(false)
+const resultUnbindPackage = ref(false)
+const resultRebindReason = ref(DEFAULT_RESULT_REBIND_REASON)
 
 const railItems = [
   { key: 'assets', icon: () => h(DatabaseOutlined), label: 'Assets' },
@@ -238,7 +266,12 @@ const queueItems = computed(() => [
       mockRunResult.value?.error?.code ||
       'idle',
   },
-  { label: 'Review import', value: 'waiting for TOO-180' },
+  {
+    label: 'Review import',
+    value: resultReviewResult.value?.result?.status ||
+      resultReviewResult.value?.error?.code ||
+      'idle',
+  },
 ])
 
 const graphCanvas = computed(() => activeGraphCanvas.value)
@@ -322,6 +355,7 @@ const operationalEvents = computed(() => [
   ...(scriptResult.value?.events || []),
   ...(sceneResult.value?.events || []),
   ...(generationPackageResult.value?.events || []),
+  ...(resultReviewResult.value?.events || []),
 ])
 const auditHealthItems = computed(() => [
   ...(projectResult.value?.health?.items || []),
@@ -330,6 +364,7 @@ const auditHealthItems = computed(() => [
   ...(continuityResult.value?.health?.items || []),
   ...(generationPackageResult.value?.health?.items || []),
   ...(mockRunResult.value?.health?.items || []),
+  ...(resultReviewResult.value?.health?.items || []),
 ])
 const graphTheme = computed<CanvasTheme>(() => themeMode.value === 'warm' ? 'warm_light' : 'dark')
 const selectedGraphNodeIDs = computed(() => selectedGraphNodes.value.length > 0
@@ -353,6 +388,7 @@ const visibleErrors = computed(() => [
   shotContextResult.value?.error,
   generationPackageResult.value?.error,
   mockRunResult.value?.error,
+  resultReviewResult.value?.error,
   probeError.value,
   ...graphErrors.value,
 ].filter((error): error is AppErrorDTO => Boolean(error)))
@@ -364,6 +400,7 @@ const healthStatus = computed(() => highestHealthStatus([
   continuityResult.value?.health,
   generationPackageResult.value?.health,
   mockRunResult.value?.health,
+  resultReviewResult.value?.health,
 ], visibleErrors.value))
 const healthStatusTone = computed(() => healthTone(healthStatus.value))
 const errorSummary = computed(() => firstErrorSummary([
@@ -380,6 +417,7 @@ const latestEventLabel = computed(() => latestEventSummary(
     ...(sceneResult.value?.events || []),
     ...(shotContextResult.value?.events || []),
     ...(generationPackageResult.value?.events || []),
+    ...(resultReviewResult.value?.events || []),
   ],
   runtimeEvents.value,
 ))
@@ -498,6 +536,49 @@ const mockRunOutputLabel = computed(() => {
   return `${output.relativePath} · ${output.digest.slice(0, 16)}`
 })
 const mockRunRecoveryActions = computed(() => mockRunResult.value?.error?.recoveryActions || [])
+const resultRows = computed(() => resultReviewResult.value?.results || [])
+const activeResult = computed(() => resultReviewResult.value?.result || resultRows.value[0])
+const activeResultId = computed(() => activeResult.value?.id || '')
+const activeResultTrace = computed(() => resultReviewResult.value?.trace)
+const activeResultShotID = computed(() => resultShotId.value.trim() || selectedShotID.value || activeMockShotID.value)
+const activeResultPackageID = computed(() => resultPackageId.value.trim() || activeMockPackageID.value)
+const resultStatusType = computed(() => {
+  if (!resultReviewResult.value) {
+    return 'info'
+  }
+  if (resultReviewResult.value.error?.severity === 'blocking' || resultReviewResult.value.error?.severity === 'error') {
+    return 'error'
+  }
+  const status = resultReviewResult.value.result?.status
+  if (resultReviewResult.value.error || status === 'missing_file' || status === 'needs_revision' || status === 'rejected' || status === 'binding_pending') {
+    return 'warning'
+  }
+  return status === 'approved' || resultReviewResult.value.ok ? 'success' : 'info'
+})
+const resultSummary = computed(() => {
+  const result = activeResult.value
+  if (!result) {
+    return resultReviewResult.value?.error?.userMessage || 'No result imported'
+  }
+  return `${result.id} · ${result.status} · take ${result.takeNumber || 'pending'}`
+})
+const resultTraceLabel = computed(() => {
+  const result = activeResult.value
+  if (!result) {
+    return 'No trace'
+  }
+  return [
+    result.shotId || 'no-shot',
+    result.packageId || 'no-package',
+    result.source.runId || result.source.kind,
+    result.assetId,
+  ].filter(Boolean).join(' · ')
+})
+const resultRecoveryActions = computed(() => (
+  resultReviewResult.value?.error?.recoveryActions ||
+  resultReviewResult.value?.trace?.recoveryActions ||
+  []
+))
 const packageStatusType = computed(() => {
   if (!generationPackageResult.value) {
     return 'info'
@@ -997,6 +1078,10 @@ async function startCurrentMockRun() {
   })
   runtimeEvents.value = mockRunResult.value.events
   if (mockRunResult.value.ok) {
+    resultRunId.value = mockRunResult.value.run?.runId || resultRunId.value
+    resultShotId.value = mockRunResult.value.run?.shotId || resultShotId.value
+    resultPackageId.value = mockRunResult.value.run?.packageId || resultPackageId.value
+    resultSourcePath.value = ''
     await loadProjectGraph()
   }
   activeInspectorTab.value = 'runs'
@@ -1043,6 +1128,97 @@ async function retryCurrentMockRun() {
   }
   activeInspectorTab.value = 'runs'
   mockRunAction.value = ''
+}
+
+async function importCurrentResult() {
+  resultAction.value = 'import'
+  resultReviewResult.value = await importResult({
+    sourcePath: resultSourcePath.value,
+    shotId: activeResultShotID.value,
+    packageId: activeResultPackageID.value,
+    runId: resultRunId.value,
+    duplicatePolicy: resultDuplicatePolicy.value,
+  })
+  if (resultReviewResult.value.ok) {
+    resultReviewNotes.value = 'Looks usable for alpha review.'
+    await loadProjectGraph()
+  }
+  activeInspectorTab.value = 'tasks'
+  resultAction.value = ''
+}
+
+async function listCurrentResults() {
+  resultAction.value = 'list'
+  resultReviewResult.value = await listResults({
+    shotId: resultShotId.value.trim() || undefined,
+    packageId: resultPackageId.value.trim() || undefined,
+  })
+  activeInspectorTab.value = 'tasks'
+  resultAction.value = ''
+}
+
+async function traceCurrentResult() {
+  const resultId = activeResultId.value
+  if (!resultId) {
+    return
+  }
+  resultAction.value = 'trace'
+  resultReviewResult.value = await traceResult({ resultId })
+  if (resultReviewResult.value.result) {
+    resultShotId.value = resultReviewResult.value.result.shotId || resultShotId.value
+    resultPackageId.value = resultReviewResult.value.result.packageId || resultPackageId.value
+  }
+  activeInspectorTab.value = 'tasks'
+  resultAction.value = ''
+}
+
+async function updateCurrentResultReview() {
+  const resultId = activeResultId.value
+  if (!resultId) {
+    return
+  }
+  resultAction.value = 'review'
+  resultReviewResult.value = await updateResultReview({
+    resultId,
+    reviewStatus: resultReviewStatus.value,
+    reviewNotes: resultReviewNotes.value,
+    reason: resultReviewReason.value,
+  })
+  if (resultReviewResult.value.ok) {
+    await loadProjectGraph()
+  }
+  activeInspectorTab.value = 'tasks'
+  resultAction.value = ''
+}
+
+async function rebindCurrentResult() {
+  const resultId = activeResultId.value
+  if (!resultId) {
+    return
+  }
+  resultAction.value = 'rebind'
+  resultReviewResult.value = await rebindResult({
+    resultId,
+    shotId: resultUnbindShot.value ? undefined : resultRebindShotId.value,
+    packageId: resultUnbindPackage.value ? undefined : resultRebindPackageId.value,
+    unbindShot: resultUnbindShot.value,
+    unbindPackage: resultUnbindPackage.value,
+    reason: resultRebindReason.value,
+  })
+  if (resultReviewResult.value.ok) {
+    const updatedResult = resultReviewResult.value.result
+    if (updatedResult) {
+      resultShotId.value = updatedResult.shotId || ''
+      resultPackageId.value = updatedResult.packageId || ''
+      resultRebindShotId.value = updatedResult.shotId || ''
+      resultRebindPackageId.value = updatedResult.packageId || ''
+    }
+    resultUnbindShot.value = false
+    resultUnbindPackage.value = false
+    await loadProjectGraph()
+  }
+  activeInspectorTab.value = 'tasks'
+  resultAction.value = ''
 }
 
 function ingestSceneCandidateResult(result: ScriptSceneCandidateResultDTO) {
@@ -1173,7 +1349,7 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
           </Tag>
           <Badge :status="graphCanvas ? 'success' : 'default'" :text="`Graph ${graphCanvas?.version ?? '-'}`" />
           <Tag :color="healthStatusTone">Health {{ healthStatus }}</Tag>
-          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0) + (assetResult?.events.length || 0) + (bindingResult?.events.length || 0) + (scriptResult?.events.length || 0) + (sceneResult?.events.length || 0) + (generationPackageResult?.events.length || 0)}`" />
+          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0) + (assetResult?.events.length || 0) + (bindingResult?.events.length || 0) + (scriptResult?.events.length || 0) + (sceneResult?.events.length || 0) + (generationPackageResult?.events.length || 0) + (resultReviewResult?.events.length || 0)}`" />
           <Segmented
             v-model:value="themeMode"
             class="theme-switch"
@@ -2308,6 +2484,199 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
                   </List>
                 </section>
 
+                <section class="service-panel" aria-label="Result review">
+                  <div class="shot-context-header">
+                    <strong>Result review</strong>
+                    <Tag v-if="resultReviewResult" :color="resultStatusType">
+                      {{ resultReviewResult.result?.status || resultReviewResult.error?.code }}
+                    </Tag>
+                  </div>
+                  <label class="script-field">
+                    <span>Source path</span>
+                    <input v-model="resultSourcePath" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <div class="script-field-grid">
+                    <label class="script-field">
+                      <span>Shot id</span>
+                      <input v-model="resultShotId" class="script-input" type="text" autocomplete="off">
+                    </label>
+                    <label class="script-field">
+                      <span>Package id</span>
+                      <input v-model="resultPackageId" class="script-input" type="text" autocomplete="off">
+                    </label>
+                  </div>
+                  <div class="script-field-grid">
+                    <label class="script-field">
+                      <span>Run id</span>
+                      <input v-model="resultRunId" class="script-input" type="text" autocomplete="off">
+                    </label>
+                    <label class="script-field">
+                      <span>Duplicate</span>
+                      <select v-model="resultDuplicatePolicy" class="script-input">
+                        <option value="cancel">Cancel</option>
+                        <option value="reuse">Reuse</option>
+                        <option value="new_take">New take</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="service-actions">
+                    <Button size="small" type="primary" :loading="resultAction === 'import'" @click="importCurrentResult">
+                      Import result
+                    </Button>
+                    <Button size="small" :loading="resultAction === 'list'" @click="listCurrentResults">
+                      List results
+                    </Button>
+                    <Button
+                      size="small"
+                      :loading="resultAction === 'trace'"
+                      :disabled="!activeResultId"
+                      @click="traceCurrentResult"
+                    >
+                      Trace
+                    </Button>
+                  </div>
+                  <Alert
+                    v-if="resultReviewResult"
+                    class="service-alert"
+                    :type="resultStatusType"
+                    show-icon
+                    :message="resultSummary"
+                    :description="resultReviewResult.result ? resultTraceLabel : `${resultReviewResult.error?.code} · ${resultReviewResult.error?.correlationId}`"
+                  />
+                  <dl v-if="activeResult" class="property-grid">
+                    <div>
+                      <dt>Asset</dt>
+                      <dd :title="activeResult.assetId">{{ activeResult.assetId }}</dd>
+                    </div>
+                    <div>
+                      <dt>Result file</dt>
+                      <dd :title="activeResult.relativePath">{{ activeResult.relativePath }}</dd>
+                    </div>
+                    <div>
+                      <dt>Record</dt>
+                      <dd :title="activeResult.recordPath">{{ activeResult.recordPath }}</dd>
+                    </div>
+                    <div>
+                      <dt>Review</dt>
+                      <dd>{{ activeResult.reviewStatus }}</dd>
+                    </div>
+                  </dl>
+                  <dl v-if="activeResultTrace" class="property-grid">
+                    <div v-if="activeResultTrace.asset">
+                      <dt>Trace asset</dt>
+                      <dd :title="activeResultTrace.asset.relativePath">
+                        {{ activeResultTrace.asset.id }} · {{ activeResultTrace.asset.role }}
+                      </dd>
+                    </div>
+                    <div v-if="activeResultTrace.shot">
+                      <dt>Trace shot</dt>
+                      <dd :title="activeResultTrace.shot.description">
+                        {{ activeResultTrace.shot.id }} · {{ activeResultTrace.shot.status }}
+                      </dd>
+                    </div>
+                    <div v-if="activeResultTrace.package">
+                      <dt>Trace package</dt>
+                      <dd :title="activeResultTrace.package.manifestPath">
+                        {{ activeResultTrace.package.packageId }} · {{ activeResultTrace.package.generationPackageStatus }}
+                      </dd>
+                    </div>
+                    <div v-if="activeResultTrace.run">
+                      <dt>Trace run</dt>
+                      <dd :title="activeResultTrace.run.runPath">
+                        {{ activeResultTrace.run.runId }} · {{ activeResultTrace.run.status }}
+                      </dd>
+                    </div>
+                  </dl>
+                  <div class="script-field-grid">
+                    <label class="script-field">
+                      <span>Review status</span>
+                      <select v-model="resultReviewStatus" class="script-input">
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="needs_revision">Needs revision</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </label>
+                    <label class="script-field">
+                      <span>Reason</span>
+                      <input v-model="resultReviewReason" class="script-input" type="text" autocomplete="off">
+                    </label>
+                  </div>
+                  <label class="script-field">
+                    <span>Review notes</span>
+                    <textarea v-model="resultReviewNotes" class="script-textarea script-textarea--short" spellcheck="false" />
+                  </label>
+                  <div class="service-actions">
+                    <Button
+                      size="small"
+                      :loading="resultAction === 'review'"
+                      :disabled="!activeResultId"
+                      @click="updateCurrentResultReview"
+                    >
+                      Save review
+                    </Button>
+                  </div>
+                  <div class="script-field-grid">
+                    <label class="script-field">
+                      <span>Rebind shot</span>
+                      <input v-model="resultRebindShotId" class="script-input" type="text" autocomplete="off">
+                    </label>
+                    <label class="script-field">
+                      <span>Rebind package</span>
+                      <input v-model="resultRebindPackageId" class="script-input" type="text" autocomplete="off">
+                    </label>
+                  </div>
+                  <label class="script-field">
+                    <span>Rebind reason</span>
+                    <input v-model="resultRebindReason" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <div class="script-field-grid">
+                    <label class="script-field">
+                      <span>Unbind shot</span>
+                      <input v-model="resultUnbindShot" type="checkbox">
+                    </label>
+                    <label class="script-field">
+                      <span>Unbind package</span>
+                      <input v-model="resultUnbindPackage" type="checkbox">
+                    </label>
+                  </div>
+                  <div class="service-actions">
+                    <Button
+                      size="small"
+                      :loading="resultAction === 'rebind'"
+                      :disabled="!activeResultId || !resultRebindReason.trim()"
+                      @click="rebindCurrentResult"
+                    >
+                      Rebind
+                    </Button>
+                  </div>
+                  <List
+                    v-if="resultRows.length"
+                    class="recovery-list"
+                    size="small"
+                    :data-source="resultRows"
+                  >
+                    <template #renderItem="{ item }">
+                      <ListItem>
+                        <span>{{ item.id }} · {{ item.status }} · take {{ item.takeNumber || 'pending' }}</span>
+                        <Tag :color="item.missing ? 'error' : 'processing'">{{ item.reviewStatus }}</Tag>
+                      </ListItem>
+                    </template>
+                  </List>
+                  <List
+                    v-if="resultRecoveryActions.length"
+                    class="recovery-list"
+                    size="small"
+                    :data-source="resultRecoveryActions"
+                  >
+                    <template #renderItem="{ item }">
+                      <ListItem>
+                        <span>{{ item }}</span>
+                      </ListItem>
+                    </template>
+                  </List>
+                </section>
+
                 <section class="service-panel" aria-label="Go service probe">
                   <div class="service-actions">
                     <Button
@@ -2461,6 +2830,14 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
                   show-icon
                   :message="mockRunSummary"
                   :description="mockRunOutputLabel"
+                />
+                <Alert
+                  v-if="activeResult"
+                  class="service-alert"
+                  :type="resultStatusType"
+                  show-icon
+                  :message="resultSummary"
+                  :description="resultTraceLabel"
                 />
                 <dl v-if="mockRunResult?.run" class="property-grid">
                   <div>
