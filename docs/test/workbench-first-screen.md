@@ -6,7 +6,7 @@
 - Recorded directory: repository root
 - Task: `TOO-161` Vue Workbench first-screen layout
 - Current conclusion: passed after rework
-- Automated entries: frontend typecheck/build, Go tests, harness verify, Wails desktop build, whitespace check, Wails import boundary check
+- Automated entries: frontend typecheck/build, Go tests, harness verify, Wails desktop build, whitespace check, Wails binding isolation check
 - Smoke entries: Wails desktop process started; Web smoke confirmed five workbench zones at 1280x820 and 1024x700
 - Sensitive information handling: no credentials, tokens, cookies, database hosts, connection strings, row keys, raw logs, full temporary paths, or full local-only screenshots are written here.
 
@@ -21,7 +21,7 @@
 | `make harness-verify` | Passed | harness check passed |
 | `make desktop-shell-build` | Passed | Wails v2 darwin/arm64 package completed |
 | `git diff --check` | Passed | no whitespace errors |
-| Wails import boundary | Passed | `frontend/src` does not import `wailsjs/go` or `wailsjs/runtime` |
+| Wails binding isolation | Passed | generated Wails binding imports are isolated to `frontend/src/api/*`; page and business components do not import `wailsjs/go` or `wailsjs/runtime` |
 | Web smoke 1280x820 | Passed | Top Bar, Left Panel, Canvas placeholder, Inspector, Bottom Bar, and theme switch visible; no page horizontal overflow |
 | Web smoke 1024x700 | Passed | five workbench zones visible; no page horizontal overflow |
 
@@ -64,4 +64,4 @@ Known limits:
 
 - No AntV G6 rendering, drag, edge creation, or saved viewport in this issue.
 - No local project create/open/save behavior in this issue.
-- No Wails generated binding import is used in page components.
+- No Wails generated binding import is used in page or business components; generated binding imports belong under `frontend/src/api/*`.
