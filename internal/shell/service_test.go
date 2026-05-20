@@ -20,8 +20,11 @@ func TestServiceInfo(t *testing.T) {
 	if info.StartedAt != "2026-05-20T03:00:00Z" {
 		t.Fatalf("StartedAt = %q, want RFC3339 UTC", info.StartedAt)
 	}
-	if len(info.Capabilities) != 10 {
-		t.Fatalf("Capabilities length = %d, want 10", len(info.Capabilities))
+	if len(info.Capabilities) != 12 {
+		t.Fatalf("Capabilities length = %d, want 12", len(info.Capabilities))
+	}
+	if !containsCapability(info.Capabilities, "project_asset_import") || !containsCapability(info.Capabilities, "project_asset_list") {
+		t.Fatalf("Capabilities = %#v, want asset import/list", info.Capabilities)
 	}
 }
 
@@ -115,4 +118,13 @@ func TestServiceProjectGraphViewResolvesRelativeExampleRoot(t *testing.T) {
 	if len(result.Canvas.Nodes) == 0 {
 		t.Fatal("Canvas nodes must be non-empty for the alpha example project")
 	}
+}
+
+func containsCapability(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }

@@ -107,6 +107,8 @@ func (s *Service) Info() Info {
 			"project_health_check",
 			"project_graph_view",
 			"project_graph_layout_save",
+			"project_asset_import",
+			"project_asset_list",
 		},
 	}
 }
@@ -155,6 +157,16 @@ func (s *Service) ProjectGraphView(command project.GraphViewCommand) project.Gra
 func (s *Service) ProjectGraphLayoutSave(command project.SaveGraphLayoutCommand) project.GraphViewResult {
 	command.Root = s.projectRoot(command.Root)
 	return s.projectStore.SaveGraphLayout(command)
+}
+
+func (s *Service) ProjectAssetImport(command project.ImportAssetCommand) project.AssetLibraryResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.ImportAsset(command)
+}
+
+func (s *Service) ProjectAssetsList(command project.ListAssetsCommand) project.AssetLibraryResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.ListAssets(command)
 }
 
 func (s *Service) ProjectScriptDocumentSave(command project.SaveScriptDocumentCommand) project.ScriptDocumentResult {

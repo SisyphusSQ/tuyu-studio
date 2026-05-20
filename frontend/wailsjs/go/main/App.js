@@ -6,6 +6,14 @@ export function AppInfo() {
   return window['go']['main']['App']['AppInfo']();
 }
 
+export function ProjectAssetImport(arg1) {
+  return window['go']['main']['App']['ProjectAssetImport'](arg1);
+}
+
+export function ProjectAssetsList(arg1) {
+  return window['go']['main']['App']['ProjectAssetsList'](arg1);
+}
+
 export function ProjectCreate(arg1) {
   return window['go']['main']['App']['ProjectCreate'](arg1);
 }

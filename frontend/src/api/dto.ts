@@ -6,6 +6,8 @@ export type CanvasTheme = 'dark' | 'warm_light'
 export type CanvasNodeCategory = 'source' | 'concept' | 'continuity' | 'production' | 'output' | 'review' | 'organizer' | 'handoff'
 export type NodeSource = 'human' | 'agent' | 'system' | 'imported'
 export type GraphEdgeValidity = 'valid' | 'invalid_relation' | 'missing_endpoint'
+export type AssetDuplicatePolicy = 'cancel' | 'reuse' | 'copy'
+export type AssetThumbnailStatus = 'placeholder' | 'thumbnail_failed' | 'none' | string
 
 export interface AppErrorDTO {
   code: string
@@ -96,6 +98,70 @@ export interface ProjectEventDTO {
 export interface ProjectOperationResultDTO {
   ok: boolean
   summary?: ProjectSummaryDTO
+  health?: HealthReportDTO
+  error?: AppErrorDTO
+  events: ProjectEventDTO[]
+}
+
+export interface AssetSourceDTO {
+  kind: string
+  originalName?: string
+  importedAt?: string
+}
+
+export interface AssetBindingDTO {
+  targetType: string
+  targetId: string
+  role?: string
+}
+
+export interface AssetDTO {
+  id: string
+  projectId: string
+  type: string
+  role: string
+  relativePath: string
+  originalName: string
+  mimeType: string
+  sizeBytes: number
+  digest: string
+  source: AssetSourceDTO
+  bindings: AssetBindingDTO[]
+  thumbnailPath?: string
+  thumbnailStatus: AssetThumbnailStatus
+  digestSummary: string
+  bindingCount: number
+  missing: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AssetDuplicateDTO {
+  existingAssetId: string
+  digest: string
+  mimeType: string
+  policy: string
+}
+
+export interface ImportAssetCommandDTO {
+  root: string
+  sourcePath: string
+  role?: string
+  duplicatePolicy?: AssetDuplicatePolicy
+  managedReference?: boolean
+  correlationId: string
+}
+
+export interface ListAssetsCommandDTO {
+  root: string
+  correlationId: string
+}
+
+export interface AssetLibraryResultDTO {
+  ok: boolean
+  asset?: AssetDTO
+  assets: AssetDTO[]
+  duplicate?: AssetDuplicateDTO
   health?: HealthReportDTO
   error?: AppErrorDTO
   events: ProjectEventDTO[]
@@ -595,6 +661,44 @@ export function normalizeProjectGraphViewResult(
   }
 }
 
+export function normalizeAssetLibraryResult(
+  result: Partial<AssetLibraryResultDTO> | null | undefined,
+  correlationId: string,
+): AssetLibraryResultDTO {
+  if (!result) {
+    return {
+      ok: false,
+      assets: [],
+      error: normalizeUnknownError(new Error('empty asset library response'), correlationId),
+      events: [],
+    }
+  }
+
+  const events = Array.isArray(result.events)
+    ? result.events.map((event) => ({
+      ...event,
+      error: event.error ? normalizeAppError(event.error, correlationId) : undefined,
+      nextActions: Array.isArray(event.nextActions) ? event.nextActions : [],
+    }))
+    : []
+  const health = result.health
+    ? {
+      ...result.health,
+      items: Array.isArray(result.health.items) ? result.health.items : [],
+    }
+    : undefined
+
+  return {
+    ok: Boolean(result.ok),
+    asset: result.asset ? normalizeAsset(result.asset) : undefined,
+    assets: Array.isArray(result.assets) ? result.assets.map(normalizeAsset) : [],
+    duplicate: result.duplicate,
+    health,
+    error: result.error ? normalizeAppError(result.error, correlationId) : undefined,
+    events,
+  }
+}
+
 export function normalizeScriptDocumentResult(
   result: Partial<ScriptDocumentResultDTO> | null | undefined,
   correlationId: string,
@@ -724,6 +828,33 @@ function normalizeProjectCanvas(canvas: ProjectCanvasDTO): ProjectCanvasDTO {
       }))
       : [],
     selectedNodeIds: Array.isArray(canvas.selectedNodeIds) ? canvas.selectedNodeIds : [],
+  }
+}
+
+function normalizeAsset(asset: Partial<AssetDTO>): AssetDTO {
+  return {
+    id: asset.id || '',
+    projectId: asset.projectId || '',
+    type: asset.type || 'text',
+    role: asset.role || 'other',
+    relativePath: asset.relativePath || '',
+    originalName: asset.originalName || '',
+    mimeType: asset.mimeType || '',
+    sizeBytes: Number(asset.sizeBytes || 0),
+    digest: asset.digest || '',
+    source: {
+      kind: asset.source?.kind || 'imported_file',
+      originalName: asset.source?.originalName,
+      importedAt: asset.source?.importedAt,
+    },
+    bindings: Array.isArray(asset.bindings) ? asset.bindings : [],
+    thumbnailPath: asset.thumbnailPath,
+    thumbnailStatus: asset.thumbnailStatus || 'none',
+    digestSummary: asset.digestSummary || (asset.digest || '').slice(0, 12),
+    bindingCount: Number(asset.bindingCount || asset.bindings?.length || 0),
+    missing: Boolean(asset.missing),
+    createdAt: asset.createdAt || '',
+    updatedAt: asset.updatedAt || '',
   }
 }
 

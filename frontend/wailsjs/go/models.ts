@@ -1,5 +1,290 @@
 export namespace project {
 
+	export class AssetBindingDTO {
+	    targetType: string;
+	    targetId: string;
+	    role?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new AssetBindingDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.targetType = source["targetType"];
+	        this.targetId = source["targetId"];
+	        this.role = source["role"];
+	    }
+	}
+	export class AssetSourceDTO {
+	    kind: string;
+	    originalName?: string;
+	    importedAt?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new AssetSourceDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.kind = source["kind"];
+	        this.originalName = source["originalName"];
+	        this.importedAt = source["importedAt"];
+	    }
+	}
+	export class AssetDTO {
+	    id: string;
+	    projectId: string;
+	    type: string;
+	    role: string;
+	    relativePath: string;
+	    originalName: string;
+	    mimeType: string;
+	    sizeBytes: number;
+	    digest: string;
+	    source: AssetSourceDTO;
+	    bindings: AssetBindingDTO[];
+	    thumbnailPath?: string;
+	    thumbnailStatus: string;
+	    digestSummary: string;
+	    bindingCount: number;
+	    missing: boolean;
+	    createdAt: string;
+	    updatedAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new AssetDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.projectId = source["projectId"];
+	        this.type = source["type"];
+	        this.role = source["role"];
+	        this.relativePath = source["relativePath"];
+	        this.originalName = source["originalName"];
+	        this.mimeType = source["mimeType"];
+	        this.sizeBytes = source["sizeBytes"];
+	        this.digest = source["digest"];
+	        this.source = this.convertValues(source["source"], AssetSourceDTO);
+	        this.bindings = this.convertValues(source["bindings"], AssetBindingDTO);
+	        this.thumbnailPath = source["thumbnailPath"];
+	        this.thumbnailStatus = source["thumbnailStatus"];
+	        this.digestSummary = source["digestSummary"];
+	        this.bindingCount = source["bindingCount"];
+	        this.missing = source["missing"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class AssetDuplicateDTO {
+	    existingAssetId: string;
+	    digest: string;
+	    mimeType: string;
+	    policy: string;
+
+	    static createFrom(source: any = {}) {
+	        return new AssetDuplicateDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.existingAssetId = source["existingAssetId"];
+	        this.digest = source["digest"];
+	        this.mimeType = source["mimeType"];
+	        this.policy = source["policy"];
+	    }
+	}
+	export class ProjectEvent {
+	    eventId: string;
+	    eventType: string;
+	    state: string;
+	    summary: string;
+	    error?: OperationError;
+	    nextActions: string[];
+	    createdAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ProjectEvent(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.eventId = source["eventId"];
+	        this.eventType = source["eventType"];
+	        this.state = source["state"];
+	        this.summary = source["summary"];
+	        this.error = this.convertValues(source["error"], OperationError);
+	        this.nextActions = source["nextActions"];
+	        this.createdAt = source["createdAt"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class OperationError {
+	    code: string;
+	    severity: string;
+	    retryable: boolean;
+	    targetType?: string;
+	    targetId?: string;
+	    userMessage: string;
+	    technicalDetail?: string;
+	    recoveryActions: string[];
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new OperationError(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.code = source["code"];
+	        this.severity = source["severity"];
+	        this.retryable = source["retryable"];
+	        this.targetType = source["targetType"];
+	        this.targetId = source["targetId"];
+	        this.userMessage = source["userMessage"];
+	        this.technicalDetail = source["technicalDetail"];
+	        this.recoveryActions = source["recoveryActions"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
+	export class HealthItem {
+	    severity: string;
+	    code: string;
+	    path?: string;
+	    affectedObjects: string[];
+	    userMessage: string;
+	    technicalDetail?: string;
+	    recoveryActions: string[];
+
+	    static createFrom(source: any = {}) {
+	        return new HealthItem(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.severity = source["severity"];
+	        this.code = source["code"];
+	        this.path = source["path"];
+	        this.affectedObjects = source["affectedObjects"];
+	        this.userMessage = source["userMessage"];
+	        this.technicalDetail = source["technicalDetail"];
+	        this.recoveryActions = source["recoveryActions"];
+	    }
+	}
+	export class HealthReport {
+	    status: string;
+	    checkedAt: string;
+	    items: HealthItem[];
+
+	    static createFrom(source: any = {}) {
+	        return new HealthReport(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.status = source["status"];
+	        this.checkedAt = source["checkedAt"];
+	        this.items = this.convertValues(source["items"], HealthItem);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class AssetLibraryResult {
+	    ok: boolean;
+	    asset?: AssetDTO;
+	    assets: AssetDTO[];
+	    duplicate?: AssetDuplicateDTO;
+	    health?: HealthReport;
+	    error?: OperationError;
+	    events: ProjectEvent[];
+
+	    static createFrom(source: any = {}) {
+	        return new AssetLibraryResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.asset = this.convertValues(source["asset"], AssetDTO);
+	        this.assets = this.convertValues(source["assets"], AssetDTO);
+	        this.duplicate = this.convertValues(source["duplicate"], AssetDuplicateDTO);
+	        this.health = this.convertValues(source["health"], HealthReport);
+	        this.error = this.convertValues(source["error"], OperationError);
+	        this.events = this.convertValues(source["events"], ProjectEvent);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
 	export class CanvasGridDTO {
 	    visible: boolean;
 	    size: number;
@@ -239,34 +524,6 @@ export namespace project {
 	        this.latestSuccessfulRunId = source["latestSuccessfulRunId"];
 	    }
 	}
-	export class OperationError {
-	    code: string;
-	    severity: string;
-	    retryable: boolean;
-	    targetType?: string;
-	    targetId?: string;
-	    userMessage: string;
-	    technicalDetail?: string;
-	    recoveryActions: string[];
-	    correlationId: string;
-
-	    static createFrom(source: any = {}) {
-	        return new OperationError(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.code = source["code"];
-	        this.severity = source["severity"];
-	        this.retryable = source["retryable"];
-	        this.targetType = source["targetType"];
-	        this.targetId = source["targetId"];
-	        this.userMessage = source["userMessage"];
-	        this.technicalDetail = source["technicalDetail"];
-	        this.recoveryActions = source["recoveryActions"];
-	        this.correlationId = source["correlationId"];
-	    }
-	}
 	export class GraphEdgeDTO {
 	    id: string;
 	    sourceNodeId: string;
@@ -416,106 +673,6 @@ export namespace project {
 	        this.expectedGraphVersion = source["expectedGraphVersion"];
 	        this.correlationId = source["correlationId"];
 	    }
-	}
-	export class ProjectEvent {
-	    eventId: string;
-	    eventType: string;
-	    state: string;
-	    summary: string;
-	    error?: OperationError;
-	    nextActions: string[];
-	    createdAt: string;
-
-	    static createFrom(source: any = {}) {
-	        return new ProjectEvent(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.eventId = source["eventId"];
-	        this.eventType = source["eventType"];
-	        this.state = source["state"];
-	        this.summary = source["summary"];
-	        this.error = this.convertValues(source["error"], OperationError);
-	        this.nextActions = source["nextActions"];
-	        this.createdAt = source["createdAt"];
-	    }
-
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
-	}
-	export class HealthItem {
-	    severity: string;
-	    code: string;
-	    path?: string;
-	    affectedObjects: string[];
-	    userMessage: string;
-	    technicalDetail?: string;
-	    recoveryActions: string[];
-
-	    static createFrom(source: any = {}) {
-	        return new HealthItem(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.severity = source["severity"];
-	        this.code = source["code"];
-	        this.path = source["path"];
-	        this.affectedObjects = source["affectedObjects"];
-	        this.userMessage = source["userMessage"];
-	        this.technicalDetail = source["technicalDetail"];
-	        this.recoveryActions = source["recoveryActions"];
-	    }
-	}
-	export class HealthReport {
-	    status: string;
-	    checkedAt: string;
-	    items: HealthItem[];
-
-	    static createFrom(source: any = {}) {
-	        return new HealthReport(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.status = source["status"];
-	        this.checkedAt = source["checkedAt"];
-	        this.items = this.convertValues(source["items"], HealthItem);
-	    }
-
-		convertValues(a: any, classs: any, asMap: boolean = false): any {
-		    if (!a) {
-		        return a;
-		    }
-		    if (a.slice && a.map) {
-		        return (a as any[]).map(elem => this.convertValues(elem, classs));
-		    } else if ("object" === typeof a) {
-		        if (asMap) {
-		            for (const key of Object.keys(a)) {
-		                a[key] = new classs(a[key]);
-		            }
-		            return a;
-		        }
-		        return new classs(a);
-		    }
-		    return a;
-		}
 	}
 	export class ReferenceGroupDTO {
 	    id: string;
@@ -699,6 +856,42 @@ export namespace project {
 	}
 
 
+	export class ImportAssetCommand {
+	    root: string;
+	    sourcePath: string;
+	    role?: string;
+	    duplicatePolicy?: string;
+	    managedReference?: boolean;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ImportAssetCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.sourcePath = source["sourcePath"];
+	        this.role = source["role"];
+	        this.duplicatePolicy = source["duplicatePolicy"];
+	        this.managedReference = source["managedReference"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
+	export class ListAssetsCommand {
+	    root: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ListAssetsCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 	export class ListShotCandidatesCommand {
 	    root: string;
 	    scriptId?: string;

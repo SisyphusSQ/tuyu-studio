@@ -194,6 +194,24 @@ h2 {
   margin-bottom: 12px;
 }
 
+.asset-import-panel {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid rgba(44, 62, 53, 0.14);
+  border-radius: 8px;
+  background: #fffdf7;
+}
+
+.asset-import-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 96px);
+  gap: 8px;
+}
+
 .asset-list {
   display: block;
 }
@@ -250,9 +268,20 @@ h2 {
 .placeholder-list span,
 .canvas-node span,
 .bottom-bar span {
+  display: block;
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.asset-thumb--warning {
+  color: #74501e;
+  background: #f7e1bd;
+}
+
+.asset-thumb--error {
+  color: #8b3e3e;
+  background: #f4d4d4;
 }
 
 .placeholder-list {
