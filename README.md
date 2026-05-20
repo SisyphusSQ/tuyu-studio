@@ -5,11 +5,30 @@
 ## 当前阶段
 
 - 当前仓库已完成 harness 控制面初始化
+- Alpha shell 已开始接入 Wails v2 Desktop App shell
 - 控制面文档统一收口到 `docs/harness/`
 - 初始化后应先确认 `.gitignore`、`.agents/`、`docs/harness/project-constraints.md`、`docs/test/RUNBOOK_TEMPLATE.md`、`scripts/harness/` 是否就位并可执行
 - 若通过 agent 驱动初始化，默认再补齐完整 `full` 版 `.agents/prompts/` 与 `.agents/guides/`
 - base harness 默认只带 Bash 与 PowerShell 两套 `check + review_gate`
 - `.agents/state/` 与 `.agents/runs/` 默认作为本地辅助运行面存在
+
+## Desktop Shell
+
+TOO-160 adds the first Wails v2 shell boundary. The shell intentionally exposes only a thin App facade and a minimal frontend asset host; Workbench layout and business services start in later execution issues.
+
+Useful commands:
+
+```bash
+make harness-verify
+go test ./...
+npm --prefix frontend install
+npm --prefix frontend run build
+make desktop-shell-build
+```
+
+`make desktop-shell-build` runs the pinned Wails CLI module with `go run github.com/wailsapp/wails/v2/cmd/wails@v2.12.0 build -clean`.
+
+The local build output remains ignored. See `docs/test/desktop-shell.md` for the smoke runbook.
 
 ## 推荐阅读顺序
 

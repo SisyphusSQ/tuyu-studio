@@ -37,3 +37,10 @@ build/
 *.out
 coverage.out
 coverage.html
+
+# Frontend / Wails generated runtime outputs
+node_modules/
+frontend/node_modules/
+frontend/dist/*
+!frontend/dist/.gitkeep
+frontend/package.json.md5
