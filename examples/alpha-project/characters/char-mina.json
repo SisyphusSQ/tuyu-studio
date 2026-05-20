@@ -1,6 +1,10 @@
 {
   "id": "char_mina",
   "displayName": "Mina",
+  "name": "Mina",
+  "role": "lead_courier",
+  "identity": "A practical young courier who notices small details under pressure.",
+  "costume": "Yellow raincoat, short black hair, canvas shoulder bag.",
   "shortDescription": "A practical young courier who notices small details under pressure.",
   "visualRules": [
     "short black hair",
@@ -10,10 +14,14 @@
   "referenceAssetIds": [
     "asset_ref_character_mina"
   ],
+  "mainReferenceAssetId": "asset_ref_character_mina",
   "referencePaths": [
     "assets/refs/character-mina.txt"
   ],
   "thumbnailPath": "assets/thumbnails/thumb-character-mina.txt",
+  "lockedRules": [
+    "rule_char_mina_raincoat"
+  ],
   "continuityRuleIds": [
     "rule_char_mina_raincoat"
   ]

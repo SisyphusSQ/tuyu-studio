@@ -5,6 +5,10 @@ import {project} from '../models';
 
 export function AppInfo():Promise<shell.Info>;
 
+export function ProjectAssetBind(arg1:project.BindAssetCommand):Promise<project.ContinuityLibraryResult>;
+
+export function ProjectAssetBindingsList(arg1:project.ListAssetBindingsCommand):Promise<project.ContinuityLibraryResult>;
+
 export function ProjectAssetImport(arg1:project.ImportAssetCommand):Promise<project.AssetLibraryResult>;
 
 export function ProjectAssetsList(arg1:project.ListAssetsCommand):Promise<project.AssetLibraryResult>;
@@ -16,6 +20,8 @@ export function ProjectGraphLayoutSave(arg1:project.SaveGraphLayoutCommand):Prom
 export function ProjectGraphView(arg1:project.GraphViewCommand):Promise<project.GraphViewResult>;
 
 export function ProjectHealth(arg1:project.CheckProjectHealthCommand):Promise<project.OperationResult>;
+
+export function ProjectMainReferenceSet(arg1:project.SetMainReferenceCommand):Promise<project.ContinuityLibraryResult>;
 
 export function ProjectOpen(arg1:project.OpenProjectCommand):Promise<project.OperationResult>;
 

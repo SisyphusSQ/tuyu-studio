@@ -66,6 +66,18 @@ func (a *App) ProjectAssetsList(command project.ListAssetsCommand) project.Asset
 	return a.service.ProjectAssetsList(command)
 }
 
+func (a *App) ProjectAssetBindingsList(command project.ListAssetBindingsCommand) project.ContinuityLibraryResult {
+	return a.service.ProjectAssetBindingsList(command)
+}
+
+func (a *App) ProjectAssetBind(command project.BindAssetCommand) project.ContinuityLibraryResult {
+	return a.service.ProjectAssetBind(command)
+}
+
+func (a *App) ProjectMainReferenceSet(command project.SetMainReferenceCommand) project.ContinuityLibraryResult {
+	return a.service.ProjectMainReferenceSet(command)
+}
+
 func (a *App) ProjectScriptDocumentSave(command project.SaveScriptDocumentCommand) project.ScriptDocumentResult {
 	return a.service.ProjectScriptDocumentSave(command)
 }

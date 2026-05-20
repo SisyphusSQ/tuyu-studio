@@ -120,9 +120,15 @@ type AssetSourceDTO struct {
 }
 
 type AssetBindingDTO struct {
+	ID         string `json:"id,omitempty"`
+	AssetID    string `json:"assetId,omitempty"`
 	TargetType string `json:"targetType"`
 	TargetID   string `json:"targetId"`
+	Purpose    string `json:"purpose,omitempty"`
 	Role       string `json:"role,omitempty"`
+	Locked     bool   `json:"locked"`
+	CreatedBy  string `json:"createdBy,omitempty"`
+	CreatedAt  string `json:"createdAt,omitempty"`
 }
 
 type AssetIndex struct {
@@ -408,6 +414,9 @@ func (s *Store) loadAssetIndex(root string, projectID string) (AssetIndex, error
 		if index.Assets[i].Bindings == nil {
 			index.Assets[i].Bindings = []AssetBindingDTO{}
 		}
+		for j := range index.Assets[i].Bindings {
+			index.Assets[i].Bindings[j] = normalizeAssetBinding(index.Assets[i].ID, index.Assets[i].Bindings[j])
+		}
 		if index.Assets[i].ThumbnailStatus == "" {
 			index.Assets[i].ThumbnailStatus = AssetThumbnailNone
 		}
@@ -451,6 +460,9 @@ func (s *Store) hydrateAssetForList(root string, asset AssetDTO) AssetDTO {
 	}
 	if asset.Bindings == nil {
 		asset.Bindings = []AssetBindingDTO{}
+	}
+	for i := range asset.Bindings {
+		asset.Bindings[i] = normalizeAssetBinding(asset.ID, asset.Bindings[i])
 	}
 	return asset
 }

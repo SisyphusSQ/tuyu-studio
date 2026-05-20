@@ -8,6 +8,8 @@ export type NodeSource = 'human' | 'agent' | 'system' | 'imported'
 export type GraphEdgeValidity = 'valid' | 'invalid_relation' | 'missing_endpoint'
 export type AssetDuplicatePolicy = 'cancel' | 'reuse' | 'copy'
 export type AssetThumbnailStatus = 'placeholder' | 'thumbnail_failed' | 'none' | string
+export type AssetBindingTargetType = 'character' | 'scene' | 'prop'
+export type AssetBindingDuplicatePolicy = 'cancel' | 'reuse'
 
 export interface AppErrorDTO {
   code: string
@@ -110,9 +112,15 @@ export interface AssetSourceDTO {
 }
 
 export interface AssetBindingDTO {
+  id?: string
+  assetId?: string
   targetType: string
   targetId: string
+  purpose?: string
   role?: string
+  locked: boolean
+  createdBy?: string
+  createdAt?: string
 }
 
 export interface AssetDTO {
@@ -162,6 +170,88 @@ export interface AssetLibraryResultDTO {
   asset?: AssetDTO
   assets: AssetDTO[]
   duplicate?: AssetDuplicateDTO
+  health?: HealthReportDTO
+  error?: AppErrorDTO
+  events: ProjectEventDTO[]
+}
+
+export interface ProfileDTO {
+  id: string
+  type: AssetBindingTargetType | string
+  name: string
+  role?: string
+  identity?: string
+  visualDescription?: string
+  costume?: string
+  location?: string
+  timeOfDay?: string
+  mood?: string
+  lighting?: string
+  category?: string
+  appearance?: string
+  usage?: string
+  relativePath: string
+  referenceAssetIds: string[]
+  mainReferenceAssetId?: string
+  mainReferencePath?: string
+  mainReferenceThumbnailPath?: string
+  lockedRules: string[]
+  bindings: AssetBindingDTO[]
+  bindingCount: number
+  missingMainReference: boolean
+}
+
+export interface BindingTargetSummaryDTO {
+  targetType: string
+  targetId: string
+  name: string
+  relativePath: string
+  mainReferenceAssetId?: string
+}
+
+export interface AssetLineageDTO {
+  assetId: string
+  sourceKind: string
+  sourceName?: string
+  relativePath: string
+  bindings: AssetBindingDTO[]
+  targetSummaries: BindingTargetSummaryDTO[]
+}
+
+export interface ListAssetBindingsCommandDTO {
+  root: string
+  correlationId: string
+}
+
+export interface BindAssetCommandDTO {
+  root: string
+  assetId: string
+  targetType: AssetBindingTargetType
+  targetId: string
+  purpose?: string
+  duplicatePolicy?: AssetBindingDuplicatePolicy
+  createdBy?: string
+  correlationId: string
+}
+
+export interface SetMainReferenceCommandDTO {
+  root: string
+  targetType: AssetBindingTargetType
+  targetId: string
+  assetId?: string
+  clear?: boolean
+  createdBy?: string
+  correlationId: string
+}
+
+export interface ContinuityLibraryResultDTO {
+  ok: boolean
+  asset?: AssetDTO
+  assets: AssetDTO[]
+  profile?: ProfileDTO
+  profiles: ProfileDTO[]
+  lineage: AssetLineageDTO[]
+  duplicate?: AssetBindingDTO
   health?: HealthReportDTO
   error?: AppErrorDTO
   events: ProjectEventDTO[]
@@ -699,6 +789,49 @@ export function normalizeAssetLibraryResult(
   }
 }
 
+export function normalizeContinuityLibraryResult(
+  result: Partial<ContinuityLibraryResultDTO> | null | undefined,
+  correlationId: string,
+): ContinuityLibraryResultDTO {
+  if (!result) {
+    return {
+      ok: false,
+      assets: [],
+      profiles: [],
+      lineage: [],
+      error: normalizeUnknownError(new Error('empty continuity library response'), correlationId),
+      events: [],
+    }
+  }
+
+  const events = Array.isArray(result.events)
+    ? result.events.map((event) => ({
+      ...event,
+      error: event.error ? normalizeAppError(event.error, correlationId) : undefined,
+      nextActions: Array.isArray(event.nextActions) ? event.nextActions : [],
+    }))
+    : []
+  const health = result.health
+    ? {
+      ...result.health,
+      items: Array.isArray(result.health.items) ? result.health.items : [],
+    }
+    : undefined
+
+  return {
+    ok: Boolean(result.ok),
+    asset: result.asset ? normalizeAsset(result.asset) : undefined,
+    assets: Array.isArray(result.assets) ? result.assets.map(normalizeAsset) : [],
+    profile: result.profile ? normalizeProfile(result.profile) : undefined,
+    profiles: Array.isArray(result.profiles) ? result.profiles.map(normalizeProfile) : [],
+    lineage: Array.isArray(result.lineage) ? result.lineage.map(normalizeAssetLineage) : [],
+    duplicate: result.duplicate ? normalizeAssetBinding(result.duplicate) : undefined,
+    health,
+    error: result.error ? normalizeAppError(result.error, correlationId) : undefined,
+    events,
+  }
+}
+
 export function normalizeScriptDocumentResult(
   result: Partial<ScriptDocumentResultDTO> | null | undefined,
   correlationId: string,
@@ -832,6 +965,8 @@ function normalizeProjectCanvas(canvas: ProjectCanvasDTO): ProjectCanvasDTO {
 }
 
 function normalizeAsset(asset: Partial<AssetDTO>): AssetDTO {
+  const bindings = Array.isArray(asset.bindings) ? asset.bindings.map(normalizeAssetBinding) : []
+
   return {
     id: asset.id || '',
     projectId: asset.projectId || '',
@@ -847,14 +982,78 @@ function normalizeAsset(asset: Partial<AssetDTO>): AssetDTO {
       originalName: asset.source?.originalName,
       importedAt: asset.source?.importedAt,
     },
-    bindings: Array.isArray(asset.bindings) ? asset.bindings : [],
+    bindings,
     thumbnailPath: asset.thumbnailPath,
     thumbnailStatus: asset.thumbnailStatus || 'none',
     digestSummary: asset.digestSummary || (asset.digest || '').slice(0, 12),
-    bindingCount: Number(asset.bindingCount || asset.bindings?.length || 0),
+    bindingCount: Number(asset.bindingCount || bindings.length || 0),
     missing: Boolean(asset.missing),
     createdAt: asset.createdAt || '',
     updatedAt: asset.updatedAt || '',
+  }
+}
+
+function normalizeAssetBinding(binding: Partial<AssetBindingDTO>): AssetBindingDTO {
+  return {
+    id: binding.id,
+    assetId: binding.assetId,
+    targetType: binding.targetType || '',
+    targetId: binding.targetId || '',
+    purpose: binding.purpose,
+    role: binding.role,
+    locked: Boolean(binding.locked),
+    createdBy: binding.createdBy,
+    createdAt: binding.createdAt,
+  }
+}
+
+function normalizeProfile(profile: Partial<ProfileDTO>): ProfileDTO {
+  const bindings = Array.isArray(profile.bindings) ? profile.bindings.map(normalizeAssetBinding) : []
+  const referenceAssetIds = Array.isArray(profile.referenceAssetIds) ? profile.referenceAssetIds : []
+
+  return {
+    id: profile.id || '',
+    type: profile.type || 'character',
+    name: profile.name || profile.id || 'Untitled profile',
+    role: profile.role,
+    identity: profile.identity,
+    visualDescription: profile.visualDescription,
+    costume: profile.costume,
+    location: profile.location,
+    timeOfDay: profile.timeOfDay,
+    mood: profile.mood,
+    lighting: profile.lighting,
+    category: profile.category,
+    appearance: profile.appearance,
+    usage: profile.usage,
+    relativePath: profile.relativePath || '',
+    referenceAssetIds,
+    mainReferenceAssetId: profile.mainReferenceAssetId,
+    mainReferencePath: profile.mainReferencePath,
+    mainReferenceThumbnailPath: profile.mainReferenceThumbnailPath,
+    lockedRules: Array.isArray(profile.lockedRules) ? profile.lockedRules : [],
+    bindings,
+    bindingCount: Number(profile.bindingCount || bindings.length || 0),
+    missingMainReference: Boolean(profile.missingMainReference),
+  }
+}
+
+function normalizeAssetLineage(lineage: Partial<AssetLineageDTO>): AssetLineageDTO {
+  return {
+    assetId: lineage.assetId || '',
+    sourceKind: lineage.sourceKind || '',
+    sourceName: lineage.sourceName,
+    relativePath: lineage.relativePath || '',
+    bindings: Array.isArray(lineage.bindings) ? lineage.bindings.map(normalizeAssetBinding) : [],
+    targetSummaries: Array.isArray(lineage.targetSummaries)
+      ? lineage.targetSummaries.map((target) => ({
+        targetType: target.targetType || '',
+        targetId: target.targetId || '',
+        name: target.name || target.targetId || '',
+        relativePath: target.relativePath || '',
+        mainReferenceAssetId: target.mainReferenceAssetId,
+      }))
+      : [],
   }
 }
 

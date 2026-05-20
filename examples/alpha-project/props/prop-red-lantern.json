@@ -1,6 +1,10 @@
 {
   "id": "prop_red_lantern",
   "displayName": "Red Lantern",
+  "name": "Red Lantern",
+  "category": "practical_light",
+  "appearance": "Small red paper lantern with visible paper texture, brass hook, and rain droplets.",
+  "usage": "Practical light cue and visual continuity anchor.",
   "shortDescription": "A small red paper lantern used as a practical light cue.",
   "visualRules": [
     "paper texture remains visible",
@@ -9,8 +13,12 @@
   "referenceAssetIds": [
     "asset_ref_prop_red_lantern"
   ],
+  "mainReferenceAssetId": "asset_ref_prop_red_lantern",
   "referencePaths": [
     "assets/refs/prop-red-lantern.txt"
+  ],
+  "lockedRules": [
+    "rule_prop_lantern_position"
   ],
   "continuityRuleIds": [
     "rule_prop_lantern_position"

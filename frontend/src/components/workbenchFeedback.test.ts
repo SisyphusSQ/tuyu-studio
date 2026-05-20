@@ -31,6 +31,8 @@ describe('Workbench feedback model', () => {
     ['missing_ref', 'Missing ref', 'error'],
     ['missing_asset', 'Missing asset', 'error'],
     ['missing_context', 'Missing context', 'error'],
+    ['main_reference_missing', 'Main ref missing', 'warning'],
+    ['main_reference', 'Main reference', 'success'],
     ['blocked', 'Blocked', 'error'],
     ['context_dirty', 'Context dirty', 'warning'],
     ['context_ready', 'Context ready', 'success'],

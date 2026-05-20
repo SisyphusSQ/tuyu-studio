@@ -20,6 +20,7 @@ body,
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -205,6 +206,17 @@ h2 {
   background: #fffdf7;
 }
 
+.binding-panel {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border: 1px solid rgba(31, 122, 100, 0.18);
+  border-radius: 8px;
+  background: #f5fbf7;
+}
+
 .asset-import-grid {
   min-width: 0;
   display: grid;
@@ -216,7 +228,8 @@ h2 {
   display: block;
 }
 
-.asset-list .ant-list-item {
+.asset-list .ant-list-item,
+.profile-list .ant-list-item {
   min-width: 0;
   min-height: 64px;
   margin-bottom: 10px;
@@ -227,17 +240,21 @@ h2 {
   background: #fffdf7;
 }
 
-.asset-list .ant-list-item-meta {
+.asset-list .ant-list-item-meta,
+.profile-list .ant-list-item-meta {
   min-width: 0;
   align-items: center;
 }
 
-.asset-list .ant-list-item-meta-content {
+.asset-list .ant-list-item-meta-content,
+.profile-list .ant-list-item-meta-content {
   min-width: 0;
 }
 
 .asset-list .ant-list-item-meta-title,
-.asset-list .ant-list-item-meta-description {
+.asset-list .ant-list-item-meta-description,
+.profile-list .ant-list-item-meta-title,
+.profile-list .ant-list-item-meta-description {
   margin: 0;
 }
 

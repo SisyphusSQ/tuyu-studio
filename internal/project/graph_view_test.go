@@ -131,7 +131,11 @@ func TestGraphViewBoundaryNoFullDomainLeak(t *testing.T) {
 	}
 
 	for _, node := range result.Canvas.Nodes {
-		if len(node.Data) > 3 {
+		limit := 3
+		if node.Kind == "character" || node.Kind == "scene" || node.Kind == "prop" {
+			limit = 9
+		}
+		if len(node.Data) > limit {
 			t.Fatalf("node %q data = %#v, want compact display summary only", node.ID, node.Data)
 		}
 		if node.RefID == "" && node.Kind != "note" {

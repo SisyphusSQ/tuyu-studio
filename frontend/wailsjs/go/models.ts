@@ -1,9 +1,15 @@
 export namespace project {
 
 	export class AssetBindingDTO {
+	    id?: string;
+	    assetId?: string;
 	    targetType: string;
 	    targetId: string;
+	    purpose?: string;
 	    role?: string;
+	    locked: boolean;
+	    createdBy?: string;
+	    createdAt?: string;
 
 	    static createFrom(source: any = {}) {
 	        return new AssetBindingDTO(source);
@@ -11,9 +17,15 @@ export namespace project {
 
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.assetId = source["assetId"];
 	        this.targetType = source["targetType"];
 	        this.targetId = source["targetId"];
+	        this.purpose = source["purpose"];
 	        this.role = source["role"];
+	        this.locked = source["locked"];
+	        this.createdBy = source["createdBy"];
+	        this.createdAt = source["createdAt"];
 	    }
 	}
 	export class AssetSourceDTO {
@@ -284,6 +296,93 @@ export namespace project {
 		    return a;
 		}
 	}
+	export class BindingTargetSummaryDTO {
+	    targetType: string;
+	    targetId: string;
+	    name: string;
+	    relativePath: string;
+	    mainReferenceAssetId?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new BindingTargetSummaryDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.targetType = source["targetType"];
+	        this.targetId = source["targetId"];
+	        this.name = source["name"];
+	        this.relativePath = source["relativePath"];
+	        this.mainReferenceAssetId = source["mainReferenceAssetId"];
+	    }
+	}
+	export class AssetLineageDTO {
+	    assetId: string;
+	    sourceKind: string;
+	    sourceName?: string;
+	    relativePath: string;
+	    bindings: AssetBindingDTO[];
+	    targetSummaries: BindingTargetSummaryDTO[];
+
+	    static createFrom(source: any = {}) {
+	        return new AssetLineageDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.assetId = source["assetId"];
+	        this.sourceKind = source["sourceKind"];
+	        this.sourceName = source["sourceName"];
+	        this.relativePath = source["relativePath"];
+	        this.bindings = this.convertValues(source["bindings"], AssetBindingDTO);
+	        this.targetSummaries = this.convertValues(source["targetSummaries"], BindingTargetSummaryDTO);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+	export class BindAssetCommand {
+	    root: string;
+	    assetId: string;
+	    targetType: string;
+	    targetId: string;
+	    purpose?: string;
+	    duplicatePolicy?: string;
+	    createdBy?: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new BindAssetCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.assetId = source["assetId"];
+	        this.targetType = source["targetType"];
+	        this.targetId = source["targetId"];
+	        this.purpose = source["purpose"];
+	        this.duplicatePolicy = source["duplicatePolicy"];
+	        this.createdBy = source["createdBy"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 
 	export class CanvasGridDTO {
 	    visible: boolean;
@@ -486,6 +585,128 @@ export namespace project {
 	        this.confirmedBy = source["confirmedBy"];
 	        this.correlationId = source["correlationId"];
 	    }
+	}
+	export class ProfileDTO {
+	    id: string;
+	    type: string;
+	    name: string;
+	    role?: string;
+	    identity?: string;
+	    visualDescription?: string;
+	    costume?: string;
+	    location?: string;
+	    timeOfDay?: string;
+	    mood?: string;
+	    lighting?: string;
+	    category?: string;
+	    appearance?: string;
+	    usage?: string;
+	    relativePath: string;
+	    referenceAssetIds: string[];
+	    mainReferenceAssetId?: string;
+	    mainReferencePath?: string;
+	    mainReferenceThumbnailPath?: string;
+	    lockedRules: string[];
+	    bindings: AssetBindingDTO[];
+	    bindingCount: number;
+	    missingMainReference: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new ProfileDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.type = source["type"];
+	        this.name = source["name"];
+	        this.role = source["role"];
+	        this.identity = source["identity"];
+	        this.visualDescription = source["visualDescription"];
+	        this.costume = source["costume"];
+	        this.location = source["location"];
+	        this.timeOfDay = source["timeOfDay"];
+	        this.mood = source["mood"];
+	        this.lighting = source["lighting"];
+	        this.category = source["category"];
+	        this.appearance = source["appearance"];
+	        this.usage = source["usage"];
+	        this.relativePath = source["relativePath"];
+	        this.referenceAssetIds = source["referenceAssetIds"];
+	        this.mainReferenceAssetId = source["mainReferenceAssetId"];
+	        this.mainReferencePath = source["mainReferencePath"];
+	        this.mainReferenceThumbnailPath = source["mainReferenceThumbnailPath"];
+	        this.lockedRules = source["lockedRules"];
+	        this.bindings = this.convertValues(source["bindings"], AssetBindingDTO);
+	        this.bindingCount = source["bindingCount"];
+	        this.missingMainReference = source["missingMainReference"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ContinuityLibraryResult {
+	    ok: boolean;
+	    asset?: AssetDTO;
+	    assets: AssetDTO[];
+	    profile?: ProfileDTO;
+	    profiles: ProfileDTO[];
+	    lineage: AssetLineageDTO[];
+	    duplicate?: AssetBindingDTO;
+	    health?: HealthReport;
+	    error?: OperationError;
+	    events: ProjectEvent[];
+
+	    static createFrom(source: any = {}) {
+	        return new ContinuityLibraryResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.asset = this.convertValues(source["asset"], AssetDTO);
+	        this.assets = this.convertValues(source["assets"], AssetDTO);
+	        this.profile = this.convertValues(source["profile"], ProfileDTO);
+	        this.profiles = this.convertValues(source["profiles"], ProfileDTO);
+	        this.lineage = this.convertValues(source["lineage"], AssetLineageDTO);
+	        this.duplicate = this.convertValues(source["duplicate"], AssetBindingDTO);
+	        this.health = this.convertValues(source["health"], HealthReport);
+	        this.error = this.convertValues(source["error"], OperationError);
+	        this.events = this.convertValues(source["events"], ProjectEvent);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class CreateProjectCommand {
 	    root: string;
@@ -878,6 +1099,20 @@ export namespace project {
 	        this.correlationId = source["correlationId"];
 	    }
 	}
+	export class ListAssetBindingsCommand {
+	    root: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ListAssetBindingsCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 	export class ListAssetsCommand {
 	    root: string;
 	    correlationId: string;
@@ -1029,6 +1264,7 @@ export namespace project {
 		    return a;
 		}
 	}
+
 
 
 
@@ -1542,6 +1778,30 @@ export namespace project {
 	}
 
 
+	export class SetMainReferenceCommand {
+	    root: string;
+	    targetType: string;
+	    targetId: string;
+	    assetId?: string;
+	    clear?: boolean;
+	    createdBy?: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new SetMainReferenceCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.targetType = source["targetType"];
+	        this.targetId = source["targetId"];
+	        this.assetId = source["assetId"];
+	        this.clear = source["clear"];
+	        this.createdBy = source["createdBy"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 
 
 
