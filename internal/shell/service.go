@@ -1,8 +1,12 @@
 package shell
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/SisyphusSQ/tuyu-studio/internal/project"
 )
 
 type Info struct {
@@ -69,11 +73,20 @@ type WorkbenchProbeResult struct {
 }
 
 type Service struct {
-	startedAt time.Time
+	startedAt          time.Time
+	projectStore       *project.Store
+	defaultProjectRoot string
 }
 
 func NewService(startedAt time.Time) *Service {
-	return &Service{startedAt: startedAt.UTC()}
+	startedAt = startedAt.UTC()
+	return &Service{
+		startedAt: startedAt,
+		projectStore: project.NewStore(project.StoreOptions{
+			InstanceID: "shell-" + startedAt.Format("20060102T150405Z"),
+		}),
+		defaultProjectRoot: defaultProjectRoot(),
+	}
 }
 
 func (s *Service) Info() Info {
@@ -86,6 +99,11 @@ func (s *Service) Info() Info {
 			"wails_v2_shell",
 			"app_facade",
 			"frontend_asset_host",
+			"project_create",
+			"project_open",
+			"project_save",
+			"project_lock",
+			"project_health_check",
 		},
 	}
 }
@@ -95,12 +113,35 @@ func (s *Service) Health() Health {
 		Status:          "ready",
 		Severity:        "info",
 		UserMessage:     "Desktop shell is ready.",
-		TechnicalDetail: "Alpha shell service boundary is available; project domain services are intentionally not mounted yet.",
+		TechnicalDetail: "Alpha shell service boundary is available with local project operation DTOs mounted.",
 		RecoveryActions: []string{
-			"Use the Workbench probe to verify the local Go service and DTO boundary.",
+			"Use the Workbench probe or project operation buttons to verify the local Go service and DTO boundary.",
 		},
 		CheckedAt: time.Now().UTC().Format(time.RFC3339),
 	}
+}
+
+func (s *Service) ProjectCreate(command project.CreateProjectCommand) project.OperationResult {
+	command.Root = s.projectRoot(command.Root)
+	if strings.TrimSpace(command.Name) == "" {
+		command.Name = "Tuyu Alpha Shell Project"
+	}
+	return s.projectStore.CreateProject(command)
+}
+
+func (s *Service) ProjectOpen(command project.OpenProjectCommand) project.OperationResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.OpenProject(command)
+}
+
+func (s *Service) ProjectSave(command project.SaveProjectCommand) project.OperationResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.SaveProject(command)
+}
+
+func (s *Service) ProjectHealth(command project.CheckProjectHealthCommand) project.OperationResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.CheckHealth(command)
 }
 
 func (s *Service) WorkbenchProbe(command WorkbenchProbeCommand) WorkbenchProbeResult {
@@ -209,4 +250,20 @@ func (s *Service) WorkbenchProbe(command WorkbenchProbeCommand) WorkbenchProbeRe
 			},
 		}
 	}
+}
+
+func (s *Service) projectRoot(root string) string {
+	root = strings.TrimSpace(root)
+	if root != "" {
+		return root
+	}
+	return s.defaultProjectRoot
+}
+
+func defaultProjectRoot() string {
+	base, err := os.UserCacheDir()
+	if err != nil || strings.TrimSpace(base) == "" {
+		base = os.TempDir()
+	}
+	return filepath.Join(base, "tuyu-studio", "alpha-shell-project")
 }

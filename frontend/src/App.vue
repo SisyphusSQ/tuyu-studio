@@ -33,11 +33,13 @@ import { h, ref } from 'vue'
 
 import {
   type AppErrorDTO,
+  type ProjectOperationName,
+  type ProjectOperationResultDTO,
   type RuntimeEventDTO,
   type WorkbenchProbeMode,
   type WorkbenchStatusDTO,
 } from './api/dto'
-import { runWorkbenchProbe } from './api/workbench'
+import { runProjectOperation, runWorkbenchProbe } from './api/workbench'
 
 const LayoutHeader = Layout.Header
 const LayoutContent = Layout.Content
@@ -53,6 +55,8 @@ const probeLoading = ref(false)
 const probeSnapshot = ref<WorkbenchStatusDTO>()
 const probeError = ref<AppErrorDTO>()
 const runtimeEvents = ref<RuntimeEventDTO[]>([])
+const projectLoading = ref<ProjectOperationName>()
+const projectResult = ref<ProjectOperationResultDTO>()
 
 const railItems = [
   { key: 'assets', icon: () => h(DatabaseOutlined), label: 'Assets' },
@@ -89,6 +93,13 @@ async function runProbe(mode: WorkbenchProbeMode) {
   runtimeEvents.value = result.events
   activeInspectorTab.value = 'tasks'
   probeLoading.value = false
+}
+
+async function runProjectAction(action: ProjectOperationName) {
+  projectLoading.value = action
+  projectResult.value = await runProjectOperation(action)
+  activeInspectorTab.value = 'tasks'
+  projectLoading.value = undefined
 }
 </script>
 
@@ -340,6 +351,49 @@ async function runProbe(mode: WorkbenchProbeMode) {
                   </Button>
                 </div>
 
+                <div class="service-actions">
+                  <Button
+                    size="small"
+                    :loading="projectLoading === 'create'"
+                    @click="runProjectAction('create')"
+                  >
+                    <template #icon>
+                      <AppstoreOutlined />
+                    </template>
+                    Create project
+                  </Button>
+                  <Button
+                    size="small"
+                    :loading="projectLoading === 'open'"
+                    @click="runProjectAction('open')"
+                  >
+                    <template #icon>
+                      <FolderOpenOutlined />
+                    </template>
+                    Open project
+                  </Button>
+                  <Button
+                    size="small"
+                    :loading="projectLoading === 'save'"
+                    @click="runProjectAction('save')"
+                  >
+                    <template #icon>
+                      <SaveOutlined />
+                    </template>
+                    Save project
+                  </Button>
+                  <Button
+                    size="small"
+                    :loading="projectLoading === 'health'"
+                    @click="runProjectAction('health')"
+                  >
+                    <template #icon>
+                      <SearchOutlined />
+                    </template>
+                    Health check
+                  </Button>
+                </div>
+
                 <Alert
                   v-if="probeSnapshot"
                   class="service-alert"
@@ -371,6 +425,64 @@ async function runProbe(mode: WorkbenchProbeMode) {
                   <template #renderItem="{ item }">
                     <ListItem>
                       <span>{{ item }}</span>
+                    </ListItem>
+                  </template>
+                </List>
+
+                <Alert
+                  v-if="projectResult?.summary"
+                  class="service-alert"
+                  :type="projectResult.ok ? 'success' : 'warning'"
+                  show-icon
+                  :message="projectResult.summary.name"
+                  :description="`${projectResult.summary.openMode} · ${projectResult.summary.lockState} · graph ${projectResult.summary.graphVersion}`"
+                />
+                <Alert
+                  v-if="projectResult?.health"
+                  class="service-alert"
+                  :type="projectResult.health.status === 'blocking' ? 'error' : projectResult.health.status === 'warning' ? 'warning' : 'success'"
+                  show-icon
+                  :message="`Health ${projectResult.health.status}`"
+                  :description="`${projectResult.health.items.length} items · ${projectResult.health.checkedAt}`"
+                />
+                <Alert
+                  v-if="projectResult?.error"
+                  class="service-alert"
+                  :type="projectResult.error.severity === 'blocking' ? 'error' : 'warning'"
+                  show-icon
+                  :message="projectResult.error.userMessage"
+                  :description="`${projectResult.error.code} · ${projectResult.error.correlationId}`"
+                />
+                <List
+                  v-if="projectResult?.health?.items.length"
+                  class="recovery-list"
+                  size="small"
+                  :data-source="projectResult.health.items"
+                >
+                  <template #renderItem="{ item }">
+                    <ListItem>
+                      <span>{{ item.code }} · {{ item.userMessage }}</span>
+                    </ListItem>
+                  </template>
+                </List>
+                <List
+                  v-if="projectResult?.events.length"
+                  class="event-list"
+                  size="small"
+                  :data-source="projectResult.events"
+                >
+                  <template #renderItem="{ item }">
+                    <ListItem>
+                      <ListItemMeta>
+                        <template #title>
+                          <strong class="event-title">
+                            {{ item.eventType }} · {{ item.state }}
+                          </strong>
+                        </template>
+                        <template #description>
+                          <span>{{ item.summary }} · {{ item.createdAt }}</span>
+                        </template>
+                      </ListItemMeta>
                     </ListItem>
                   </template>
                 </List>

@@ -6,6 +6,22 @@ export function AppInfo() {
   return window['go']['main']['App']['AppInfo']();
 }
 
+export function ProjectCreate(arg1) {
+  return window['go']['main']['App']['ProjectCreate'](arg1);
+}
+
+export function ProjectHealth(arg1) {
+  return window['go']['main']['App']['ProjectHealth'](arg1);
+}
+
+export function ProjectOpen(arg1) {
+  return window['go']['main']['App']['ProjectOpen'](arg1);
+}
+
+export function ProjectSave(arg1) {
+  return window['go']['main']['App']['ProjectSave'](arg1);
+}
+
 export function ShellHealth() {
   return window['go']['main']['App']['ShellHealth']();
 }
