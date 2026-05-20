@@ -124,6 +124,23 @@ export interface ProjectGraphLayoutSaveCommandDTO {
   correlationId: string
 }
 
+export interface SaveScriptDocumentCommandDTO {
+  root: string
+  scriptId?: string
+  title: string
+  sourceAssetId?: string
+  rawText: string
+  logline?: string
+  synopsis?: string
+  correlationId: string
+}
+
+export interface LoadScriptDocumentCommandDTO {
+  root: string
+  scriptId?: string
+  correlationId: string
+}
+
 export interface CanvasViewportDTO {
   x: number
   y: number
@@ -230,6 +247,51 @@ export interface ProjectGraphViewResultDTO {
   health?: HealthReportDTO
   error?: AppErrorDTO
   errors: AppErrorDTO[]
+  events: ProjectEventDTO[]
+}
+
+export interface ScriptSourceRangeDTO {
+  startLine: number
+  endLine: number
+}
+
+export interface DialogueLineDTO {
+  characterName: string
+  text: string
+  intent?: string
+}
+
+export interface ScriptSceneDTO {
+  id: string
+  index: number
+  title: string
+  location: string
+  timeOfDay: string
+  characters: string[]
+  props: string[]
+  action: string
+  dialogue: DialogueLineDTO[]
+  emotionalBeat: string
+  sourceRange?: ScriptSourceRangeDTO
+}
+
+export interface ScriptDocumentDTO {
+  id: string
+  projectId: string
+  title: string
+  sourceAssetId?: string
+  rawText: string
+  logline?: string
+  synopsis?: string
+  scenes: ScriptSceneDTO[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ScriptDocumentResultDTO {
+  ok: boolean
+  document?: ScriptDocumentDTO
+  error?: AppErrorDTO
   events: ProjectEventDTO[]
 }
 
@@ -357,6 +419,34 @@ export function normalizeProjectGraphViewResult(
   }
 }
 
+export function normalizeScriptDocumentResult(
+  result: Partial<ScriptDocumentResultDTO> | null | undefined,
+  correlationId: string,
+): ScriptDocumentResultDTO {
+  if (!result) {
+    return {
+      ok: false,
+      error: normalizeUnknownError(new Error('empty script document response'), correlationId),
+      events: [],
+    }
+  }
+
+  const events = Array.isArray(result.events)
+    ? result.events.map((event) => ({
+      ...event,
+      error: event.error ? normalizeAppError(event.error, correlationId) : undefined,
+      nextActions: Array.isArray(event.nextActions) ? event.nextActions : [],
+    }))
+    : []
+
+  return {
+    ok: Boolean(result.ok),
+    document: result.document ? normalizeScriptDocument(result.document) : undefined,
+    error: result.error ? normalizeAppError(result.error, correlationId) : undefined,
+    events,
+  }
+}
+
 function normalizeProjectCanvas(canvas: ProjectCanvasDTO): ProjectCanvasDTO {
   return {
     ...canvas,
@@ -394,6 +484,28 @@ function normalizeProjectCanvas(canvas: ProjectCanvasDTO): ProjectCanvasDTO {
       }))
       : [],
     selectedNodeIds: Array.isArray(canvas.selectedNodeIds) ? canvas.selectedNodeIds : [],
+  }
+}
+
+function normalizeScriptDocument(document: Partial<ScriptDocumentDTO>): ScriptDocumentDTO {
+  return {
+    id: document.id || 'script_main',
+    projectId: document.projectId || '',
+    title: document.title || 'Untitled Script',
+    sourceAssetId: document.sourceAssetId,
+    rawText: document.rawText || '',
+    logline: document.logline,
+    synopsis: document.synopsis,
+    scenes: Array.isArray(document.scenes)
+      ? document.scenes.map((scene) => ({
+        ...scene,
+        characters: Array.isArray(scene.characters) ? scene.characters : [],
+        props: Array.isArray(scene.props) ? scene.props : [],
+        dialogue: Array.isArray(scene.dialogue) ? scene.dialogue : [],
+      }))
+      : [],
+    createdAt: document.createdAt || '',
+    updatedAt: document.updatedAt || '',
   }
 }
 
