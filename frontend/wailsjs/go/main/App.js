@@ -10,6 +10,10 @@ export function ProjectAssetBind(arg1) {
   return window['go']['main']['App']['ProjectAssetBind'](arg1);
 }
 
+export function ProjectAssetBindingUnlock(arg1) {
+  return window['go']['main']['App']['ProjectAssetBindingUnlock'](arg1);
+}
+
 export function ProjectAssetBindingsList(arg1) {
   return window['go']['main']['App']['ProjectAssetBindingsList'](arg1);
 }
@@ -20,6 +24,18 @@ export function ProjectAssetImport(arg1) {
 
 export function ProjectAssetsList(arg1) {
   return window['go']['main']['App']['ProjectAssetsList'](arg1);
+}
+
+export function ProjectContinuityList(arg1) {
+  return window['go']['main']['App']['ProjectContinuityList'](arg1);
+}
+
+export function ProjectContinuityRuleSave(arg1) {
+  return window['go']['main']['App']['ProjectContinuityRuleSave'](arg1);
+}
+
+export function ProjectContinuityRuleUnlock(arg1) {
+  return window['go']['main']['App']['ProjectContinuityRuleUnlock'](arg1);
 }
 
 export function ProjectCreate(arg1) {

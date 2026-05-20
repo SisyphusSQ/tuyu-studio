@@ -73,29 +73,30 @@ type ContinuityLibraryResult struct {
 }
 
 type ProfileDTO struct {
-	ID                         string            `json:"id"`
-	Type                       string            `json:"type"`
-	Name                       string            `json:"name"`
-	Role                       string            `json:"role,omitempty"`
-	Identity                   string            `json:"identity,omitempty"`
-	VisualDescription          string            `json:"visualDescription,omitempty"`
-	Costume                    string            `json:"costume,omitempty"`
-	Location                   string            `json:"location,omitempty"`
-	TimeOfDay                  string            `json:"timeOfDay,omitempty"`
-	Mood                       string            `json:"mood,omitempty"`
-	Lighting                   string            `json:"lighting,omitempty"`
-	Category                   string            `json:"category,omitempty"`
-	Appearance                 string            `json:"appearance,omitempty"`
-	Usage                      string            `json:"usage,omitempty"`
-	RelativePath               string            `json:"relativePath"`
-	ReferenceAssetIDs          []string          `json:"referenceAssetIds"`
-	MainReferenceAssetID       string            `json:"mainReferenceAssetId,omitempty"`
-	MainReferencePath          string            `json:"mainReferencePath,omitempty"`
-	MainReferenceThumbnailPath string            `json:"mainReferenceThumbnailPath,omitempty"`
-	LockedRules                []string          `json:"lockedRules"`
-	Bindings                   []AssetBindingDTO `json:"bindings"`
-	BindingCount               int               `json:"bindingCount"`
-	MissingMainReference       bool              `json:"missingMainReference"`
+	ID                         string              `json:"id"`
+	Type                       string              `json:"type"`
+	Name                       string              `json:"name"`
+	Role                       string              `json:"role,omitempty"`
+	Identity                   string              `json:"identity,omitempty"`
+	VisualDescription          string              `json:"visualDescription,omitempty"`
+	Costume                    string              `json:"costume,omitempty"`
+	Location                   string              `json:"location,omitempty"`
+	TimeOfDay                  string              `json:"timeOfDay,omitempty"`
+	Mood                       string              `json:"mood,omitempty"`
+	Lighting                   string              `json:"lighting,omitempty"`
+	Category                   string              `json:"category,omitempty"`
+	Appearance                 string              `json:"appearance,omitempty"`
+	Usage                      string              `json:"usage,omitempty"`
+	RelativePath               string              `json:"relativePath"`
+	ReferenceAssetIDs          []string            `json:"referenceAssetIds"`
+	MainReferenceAssetID       string              `json:"mainReferenceAssetId,omitempty"`
+	MainReferencePath          string              `json:"mainReferencePath,omitempty"`
+	MainReferenceThumbnailPath string              `json:"mainReferenceThumbnailPath,omitempty"`
+	LockedRules                []string            `json:"lockedRules"`
+	ContinuityRules            []ContinuityRuleDTO `json:"continuityRules"`
+	Bindings                   []AssetBindingDTO   `json:"bindings"`
+	BindingCount               int                 `json:"bindingCount"`
+	MissingMainReference       bool                `json:"missingMainReference"`
 }
 
 type AssetLineageDTO struct {
@@ -321,6 +322,9 @@ func (s *Store) SetMainReference(command SetMainReferenceCommand) ContinuityLibr
 			return s.bindingFailure(CodeMainReferenceAssetMissing, SeverityBlocking, true, correlationID, "Main reference asset does not exist.", assetID)
 		}
 	}
+	if locked := lockedMainReferenceBinding(index.Assets, targetType, profile.dto.ID); locked != nil {
+		return s.bindingFailure(CodeContinuityLockedBinding, SeverityBlocking, false, correlationID, "Locked main reference binding cannot be replaced or cleared silently.", locked.ID)
+	}
 	removeMainReferenceBindings(index.Assets, targetType, profile.dto.ID)
 	if command.Clear {
 		profile.dto.MainReferenceAssetID = ""
@@ -361,12 +365,19 @@ func (s *Store) SetMainReference(command SetMainReferenceCommand) ContinuityLibr
 			"cleared":              command.Clear,
 		},
 	})
+	changedShots, dirtyErr := s.markShotsDirtyForContinuityChange(root, manifest, targetType, profile.dto.ID, "", "main reference updated", correlationID, now)
+	if dirtyErr != nil {
+		return s.bindingFailure(CodeContinuityDirtyPropagate, SeverityBlocking, true, correlationID, "Main reference was updated, but affected Shot dirty marking failed.", dirtyErr.Error())
+	}
 
 	profiles, _ := s.loadProfileRecords(root, manifest)
 	state := "completed"
 	summary := "Profile main reference updated."
 	if profile.dto.MainReferenceAssetID == "" {
 		summary = "Profile main reference cleared."
+	}
+	if len(changedShots) > 0 {
+		summary += " Affected Shots were marked context_dirty."
 	}
 	return s.bindingSuccess(root, index, profiles, selected, &profile.dto, nil, []ProjectEvent{
 		s.event("asset_binding.main_reference", state, summary, correlationID, nil),
@@ -442,6 +453,8 @@ func bindingRecoveryActions(code string, detail string) []string {
 		return []string{"Choose reuse to keep the existing binding, or select a different purpose."}
 	case CodeBindingPurposeReserved:
 		return []string{"Use the dedicated main reference action to set or clear main_reference."}
+	case CodeContinuityLockedBinding:
+		return []string{"Unlock the locked binding with a recorded reason before replacing or clearing it."}
 	case CodeBindingProfileInvalid:
 		return []string{"Fix the profile JSON shape or restore the profile file from backup."}
 	case CodeBindingWriteFailed:
@@ -527,6 +540,7 @@ func readProfileRecordFile(filename string, relative string, targetType string) 
 		MainReferenceAssetID: strings.TrimSpace(firstString(raw, "mainReferenceAssetId")),
 		LockedRules:          cleanStringList(firstStringSlice(raw, "lockedRules")),
 	}
+	dto.ContinuityRules = parseContinuityRules(raw, targetType, dto.ID, dto.LockedRules)
 	if dto.VisualDescription == "" {
 		dto.VisualDescription = strings.Join(firstStringSlice(raw, "visualRules"), "; ")
 	}
@@ -549,6 +563,9 @@ func readProfileRecordFile(filename string, relative string, targetType string) 
 	}
 	if dto.LockedRules == nil {
 		dto.LockedRules = []string{}
+	}
+	if dto.ContinuityRules == nil {
+		dto.ContinuityRules = []ContinuityRuleDTO{}
 	}
 	if dto.ReferenceAssetIDs == nil {
 		dto.ReferenceAssetIDs = []string{}
@@ -588,6 +605,8 @@ func profileRawWithBaseline(raw map[string]any, dto ProfileDTO) map[string]any {
 	raw["referenceAssetIds"] = dto.ReferenceAssetIDs
 	raw["mainReferenceAssetId"] = dto.MainReferenceAssetID
 	raw["lockedRules"] = dto.LockedRules
+	raw["continuityRules"] = dto.ContinuityRules
+	raw["continuityRuleIds"] = continuityRuleIDs(dto.ContinuityRules)
 	switch dto.Type {
 	case BindingTargetCharacter:
 		setStringIfMissing(raw, "role", dto.Role)
@@ -780,6 +799,18 @@ func removeMainReferenceBindings(assets []AssetDTO, targetType string, targetID 
 		}
 		assets[assetIndex].Bindings = bindings
 	}
+}
+
+func lockedMainReferenceBinding(assets []AssetDTO, targetType string, targetID string) *AssetBindingDTO {
+	for assetIndex := range assets {
+		for bindingIndex := range assets[assetIndex].Bindings {
+			binding := normalizeAssetBinding(assets[assetIndex].ID, assets[assetIndex].Bindings[bindingIndex])
+			if binding.TargetType == targetType && binding.TargetID == targetID && binding.Purpose == BindingPurposeMainReference && binding.Locked {
+				return &binding
+			}
+		}
+	}
+	return nil
 }
 
 func bindingID(assetID string, targetType string, targetID string, purpose string) string {

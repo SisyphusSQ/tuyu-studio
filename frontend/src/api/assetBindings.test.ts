@@ -96,6 +96,7 @@ describe('Asset binding API wrapper', () => {
           referenceAssetIds: ['asset_char_mina'],
           mainReferenceAssetId: 'asset_char_mina',
           lockedRules: [],
+          continuityRules: [],
           bindings: [],
           bindingCount: 1,
           missingMainReference: false,

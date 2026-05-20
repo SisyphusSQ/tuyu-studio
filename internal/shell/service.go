@@ -112,6 +112,10 @@ func (s *Service) Info() Info {
 			"project_asset_binding_list",
 			"project_asset_bind",
 			"project_main_reference_set",
+			"project_continuity_list",
+			"project_continuity_rule_save",
+			"project_continuity_rule_unlock",
+			"project_asset_binding_unlock",
 		},
 	}
 }
@@ -185,6 +189,26 @@ func (s *Service) ProjectAssetBind(command project.BindAssetCommand) project.Con
 func (s *Service) ProjectMainReferenceSet(command project.SetMainReferenceCommand) project.ContinuityLibraryResult {
 	command.Root = s.projectRoot(command.Root)
 	return s.projectStore.SetMainReference(command)
+}
+
+func (s *Service) ProjectContinuityList(command project.ListContinuityCommand) project.ContinuityResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.ListContinuity(command)
+}
+
+func (s *Service) ProjectContinuityRuleSave(command project.SaveContinuityRuleCommand) project.ContinuityResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.SaveContinuityRule(command)
+}
+
+func (s *Service) ProjectContinuityRuleUnlock(command project.UnlockContinuityRuleCommand) project.ContinuityResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.UnlockContinuityRule(command)
+}
+
+func (s *Service) ProjectAssetBindingUnlock(command project.UnlockAssetBindingCommand) project.ContinuityResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.UnlockAssetBinding(command)
 }
 
 func (s *Service) ProjectScriptDocumentSave(command project.SaveScriptDocumentCommand) project.ScriptDocumentResult {

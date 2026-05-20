@@ -292,6 +292,10 @@ function badgeText(kind: string): string {
       return 'REV'
     case 'missing_asset':
       return 'MISS'
+    case 'stale_binding':
+      return 'STALE'
+    case 'managed_reference':
+      return 'MREF'
     case 'draft':
       return 'DRAFT'
     default:
@@ -311,6 +315,8 @@ function badgeTone(kind: string, theme: CanvasTheme) {
       }
     case 'context_dirty':
     case 'missing_asset':
+    case 'stale_binding':
+    case 'managed_reference':
       return {
         fill: dark ? '#5d3e1f' : '#f8e4bd',
         stroke: dark ? '#d4a05d' : '#c78931',

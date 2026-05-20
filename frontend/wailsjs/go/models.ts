@@ -586,6 +586,100 @@ export namespace project {
 	        this.correlationId = source["correlationId"];
 	    }
 	}
+	export class ContinuityImpactIssueDTO {
+	    code: string;
+	    severity: string;
+	    targetType?: string;
+	    targetId?: string;
+	    userMessage: string;
+	    recoveryActions: string[];
+
+	    static createFrom(source: any = {}) {
+	        return new ContinuityImpactIssueDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.code = source["code"];
+	        this.severity = source["severity"];
+	        this.targetType = source["targetType"];
+	        this.targetId = source["targetId"];
+	        this.userMessage = source["userMessage"];
+	        this.recoveryActions = source["recoveryActions"];
+	    }
+	}
+	export class ContinuityImpactReportDTO {
+	    affectedAssets: string[];
+	    affectedBindings: string[];
+	    affectedProfiles: string[];
+	    affectedShots: string[];
+	    affectedPackages: string[];
+	    issues: ContinuityImpactIssueDTO[];
+	    recoveryActions: string[];
+	    checkedAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ContinuityImpactReportDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.affectedAssets = source["affectedAssets"];
+	        this.affectedBindings = source["affectedBindings"];
+	        this.affectedProfiles = source["affectedProfiles"];
+	        this.affectedShots = source["affectedShots"];
+	        this.affectedPackages = source["affectedPackages"];
+	        this.issues = this.convertValues(source["issues"], ContinuityImpactIssueDTO);
+	        this.recoveryActions = source["recoveryActions"];
+	        this.checkedAt = source["checkedAt"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ContinuityRuleDTO {
+	    id: string;
+	    targetType: string;
+	    targetId: string;
+	    rule: string;
+	    severity: string;
+	    locked: boolean;
+	    createdBy: string;
+	    createdAt?: string;
+	    updatedAt?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ContinuityRuleDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.targetType = source["targetType"];
+	        this.targetId = source["targetId"];
+	        this.rule = source["rule"];
+	        this.severity = source["severity"];
+	        this.locked = source["locked"];
+	        this.createdBy = source["createdBy"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+	}
 	export class ProfileDTO {
 	    id: string;
 	    type: string;
@@ -607,6 +701,7 @@ export namespace project {
 	    mainReferencePath?: string;
 	    mainReferenceThumbnailPath?: string;
 	    lockedRules: string[];
+	    continuityRules: ContinuityRuleDTO[];
 	    bindings: AssetBindingDTO[];
 	    bindingCount: number;
 	    missingMainReference: boolean;
@@ -637,6 +732,7 @@ export namespace project {
 	        this.mainReferencePath = source["mainReferencePath"];
 	        this.mainReferenceThumbnailPath = source["mainReferenceThumbnailPath"];
 	        this.lockedRules = source["lockedRules"];
+	        this.continuityRules = this.convertValues(source["continuityRules"], ContinuityRuleDTO);
 	        this.bindings = this.convertValues(source["bindings"], AssetBindingDTO);
 	        this.bindingCount = source["bindingCount"];
 	        this.missingMainReference = source["missingMainReference"];
@@ -708,6 +804,49 @@ export namespace project {
 		    return a;
 		}
 	}
+	export class ContinuityResult {
+	    ok: boolean;
+	    rule?: ContinuityRuleDTO;
+	    rules: ContinuityRuleDTO[];
+	    impact?: ContinuityImpactReportDTO;
+	    health?: HealthReport;
+	    error?: OperationError;
+	    events: ProjectEvent[];
+
+	    static createFrom(source: any = {}) {
+	        return new ContinuityResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.rule = this.convertValues(source["rule"], ContinuityRuleDTO);
+	        this.rules = this.convertValues(source["rules"], ContinuityRuleDTO);
+	        this.impact = this.convertValues(source["impact"], ContinuityImpactReportDTO);
+	        this.health = this.convertValues(source["health"], HealthReport);
+	        this.error = this.convertValues(source["error"], OperationError);
+	        this.events = this.convertValues(source["events"], ProjectEvent);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
 	export class CreateProjectCommand {
 	    root: string;
 	    projectId: string;
@@ -1127,6 +1266,20 @@ export namespace project {
 	        this.correlationId = source["correlationId"];
 	    }
 	}
+	export class ListContinuityCommand {
+	    root: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ListContinuityCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 	export class ListShotCandidatesCommand {
 	    root: string;
 	    scriptId?: string;
@@ -1303,6 +1456,34 @@ export namespace project {
 	        this.scriptId = source["scriptId"];
 	        this.candidateId = source["candidateId"];
 	        this.rejectionReason = source["rejectionReason"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
+	export class SaveContinuityRuleCommand {
+	    root: string;
+	    id?: string;
+	    targetType: string;
+	    targetId: string;
+	    rule: string;
+	    severity?: string;
+	    locked: boolean;
+	    createdBy?: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new SaveContinuityRuleCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.id = source["id"];
+	        this.targetType = source["targetType"];
+	        this.targetId = source["targetId"];
+	        this.rule = source["rule"];
+	        this.severity = source["severity"];
+	        this.locked = source["locked"];
+	        this.createdBy = source["createdBy"];
 	        this.correlationId = source["correlationId"];
 	    }
 	}
@@ -1930,6 +2111,50 @@ export namespace project {
 		}
 	}
 
+	export class UnlockAssetBindingCommand {
+	    root: string;
+	    bindingId?: string;
+	    assetId?: string;
+	    targetType?: string;
+	    targetId?: string;
+	    purpose?: string;
+	    reason: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new UnlockAssetBindingCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.bindingId = source["bindingId"];
+	        this.assetId = source["assetId"];
+	        this.targetType = source["targetType"];
+	        this.targetId = source["targetId"];
+	        this.purpose = source["purpose"];
+	        this.reason = source["reason"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
+	export class UnlockContinuityRuleCommand {
+	    root: string;
+	    ruleId: string;
+	    reason: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new UnlockContinuityRuleCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.ruleId = source["ruleId"];
+	        this.reason = source["reason"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 	export class ValidateShotContextCommand {
 	    root: string;
 	    shotId: string;

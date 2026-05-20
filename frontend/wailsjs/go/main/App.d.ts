@@ -7,11 +7,19 @@ export function AppInfo():Promise<shell.Info>;
 
 export function ProjectAssetBind(arg1:project.BindAssetCommand):Promise<project.ContinuityLibraryResult>;
 
+export function ProjectAssetBindingUnlock(arg1:project.UnlockAssetBindingCommand):Promise<project.ContinuityResult>;
+
 export function ProjectAssetBindingsList(arg1:project.ListAssetBindingsCommand):Promise<project.ContinuityLibraryResult>;
 
 export function ProjectAssetImport(arg1:project.ImportAssetCommand):Promise<project.AssetLibraryResult>;
 
 export function ProjectAssetsList(arg1:project.ListAssetsCommand):Promise<project.AssetLibraryResult>;
+
+export function ProjectContinuityList(arg1:project.ListContinuityCommand):Promise<project.ContinuityResult>;
+
+export function ProjectContinuityRuleSave(arg1:project.SaveContinuityRuleCommand):Promise<project.ContinuityResult>;
+
+export function ProjectContinuityRuleUnlock(arg1:project.UnlockContinuityRuleCommand):Promise<project.ContinuityResult>;
 
 export function ProjectCreate(arg1:project.CreateProjectCommand):Promise<project.OperationResult>;
 
