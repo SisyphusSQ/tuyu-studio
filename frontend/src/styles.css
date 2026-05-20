@@ -463,6 +463,27 @@ h2 {
   line-height: 1.45;
 }
 
+.health-item {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.health-item strong {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-panel);
+  font-size: 12px;
+}
+
+.health-actions .ant-list-item {
+  padding: 2px 0 !important;
+  border-block-end: 0 !important;
+}
+
 .event-title {
   display: block;
   min-width: 0;

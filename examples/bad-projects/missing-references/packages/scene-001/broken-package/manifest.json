@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectId": "proj_bad_missing_refs",
+  "sceneId": "scene_missing",
+  "shotId": "shot_missing",
+  "packageId": "pkg_broken_refs",
+  "packageVersion": 1,
+  "providerProfileId": "provider_manual_handoff",
+  "generationPackageStatus": "draft",
+  "promptPath": "prompt-missing.txt",
+  "continuityPath": "continuity-missing.md",
+  "uploadChecklistPath": "upload-checklist-missing.md",
+  "references": [
+    "references/missing-ref.txt"
+  ],
+  "createdAt": "2026-05-20T06:00:00Z"
+}

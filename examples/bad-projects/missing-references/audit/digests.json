@@ -1,0 +1,12 @@
+{
+  "files": [
+    {
+      "path": "assets/refs/missing-ref.txt",
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "affectedObjects": [
+        "shot_missing",
+        "pkg_broken_refs"
+      ]
+    }
+  ]
+}

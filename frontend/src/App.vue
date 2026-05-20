@@ -461,7 +461,33 @@ async function runProjectAction(action: ProjectOperationName) {
                 >
                   <template #renderItem="{ item }">
                     <ListItem>
-                      <span>{{ item.code }} · {{ item.userMessage }}</span>
+                      <div class="health-item">
+                        <strong>
+                          {{ item.code }} · {{ item.severity }}
+                        </strong>
+                        <span>{{ item.userMessage }}</span>
+                        <span v-if="item.path">
+                          Path {{ item.path }}
+                        </span>
+                        <span v-if="item.affectedObjects.length">
+                          Affected {{ item.affectedObjects.join(', ') }}
+                        </span>
+                        <span v-if="item.technicalDetail">
+                          Detail {{ item.technicalDetail }}
+                        </span>
+                        <List
+                          v-if="item.recoveryActions.length"
+                          class="health-actions"
+                          size="small"
+                          :data-source="item.recoveryActions"
+                        >
+                          <template #renderItem="{ item: action }">
+                            <ListItem>
+                              <span>{{ action }}</span>
+                            </ListItem>
+                          </template>
+                        </List>
+                      </div>
                     </ListItem>
                   </template>
                 </List>
