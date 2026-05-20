@@ -188,8 +188,10 @@ function bindGraphEvents(instance: Graph) {
     currentViewport.value = readViewport()
     emit('viewport', currentViewport.value)
   })
-  instance.on(CanvasEvent.CLICK, () => {
-    clearSelection()
+  instance.on(CanvasEvent.CLICK, (event: IEvent) => {
+    if (isCanvasBackgroundClick(event)) {
+      clearSelection()
+    }
   })
   instance.on(GraphEvent.AFTER_TRANSFORM, () => {
     currentViewport.value = readViewport()
@@ -351,6 +353,14 @@ function eventTargetID(event: IEvent): string | undefined {
   const target = 'target' in event ? event.target : undefined
   const id = target && 'id' in target ? target.id : undefined
   return typeof id === 'string' ? id : undefined
+}
+
+function isCanvasBackgroundClick(event: IEvent): boolean {
+  const targetType = 'targetType' in event ? event.targetType : undefined
+  if (targetType === 'canvas') {
+    return true
+  }
+  return targetType === undefined && eventTargetID(event) === undefined
 }
 
 defineExpose({
