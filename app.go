@@ -58,6 +58,14 @@ func (a *App) ProjectGraphLayoutSave(command project.SaveGraphLayoutCommand) pro
 	return a.service.ProjectGraphLayoutSave(command)
 }
 
+func (a *App) ProjectAssetImport(command project.ImportAssetCommand) project.AssetLibraryResult {
+	return a.service.ProjectAssetImport(command)
+}
+
+func (a *App) ProjectAssetsList(command project.ListAssetsCommand) project.AssetLibraryResult {
+	return a.service.ProjectAssetsList(command)
+}
+
 func (a *App) ProjectScriptDocumentSave(command project.SaveScriptDocumentCommand) project.ScriptDocumentResult {
 	return a.service.ProjectScriptDocumentSave(command)
 }

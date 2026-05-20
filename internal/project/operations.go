@@ -523,6 +523,7 @@ func (s *Store) HealthReport(root string) HealthReport {
 	items = append(items, s.checkGraphReferences(root, manifest)...)
 	items = append(items, s.checkPackageReferences(root, manifest)...)
 	items = append(items, s.checkDigestIndex(root)...)
+	items = append(items, s.checkAssetIndex(root, manifest)...)
 
 	if !manifest.Integrity.LastCleanShutdown {
 		items = append(items, HealthItem{
@@ -1211,6 +1212,8 @@ func summaryFromManifest(root string, manifest Manifest, lockInfo LockInfo) Proj
 			"project_health_check",
 			"project_graph_view",
 			"project_graph_layout_save",
+			"project_asset_import",
+			"project_asset_list",
 		},
 	}
 }

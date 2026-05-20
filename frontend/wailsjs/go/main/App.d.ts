@@ -5,6 +5,10 @@ import {project} from '../models';
 
 export function AppInfo():Promise<shell.Info>;
 
+export function ProjectAssetImport(arg1:project.ImportAssetCommand):Promise<project.AssetLibraryResult>;
+
+export function ProjectAssetsList(arg1:project.ListAssetsCommand):Promise<project.AssetLibraryResult>;
+
 export function ProjectCreate(arg1:project.CreateProjectCommand):Promise<project.OperationResult>;
 
 export function ProjectGraphLayoutSave(arg1:project.SaveGraphLayoutCommand):Promise<project.GraphViewResult>;

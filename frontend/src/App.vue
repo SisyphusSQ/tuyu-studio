@@ -33,6 +33,9 @@ import { computed, h, onMounted, ref } from 'vue'
 
 import {
   type AppErrorDTO,
+  type AssetDTO,
+  type AssetDuplicatePolicy,
+  type AssetLibraryResultDTO,
   type CanvasGridDTO,
   type CanvasTheme,
   type GraphNodeDTO,
@@ -50,6 +53,12 @@ import {
   type WorkbenchProbeMode,
   type WorkbenchStatusDTO,
 } from './api/dto'
+import {
+  DEFAULT_ASSET_IMPORT_ROLE,
+  DEFAULT_ASSET_IMPORT_SOURCE,
+  importAsset,
+  listAssets,
+} from './api/assets'
 import {
   DEFAULT_SCRIPT_DOCUMENT_ID,
   DEFAULT_SCRIPT_SOURCE_ASSET_ID,
@@ -113,6 +122,14 @@ const canvasGrid = ref<CanvasGridDTO>({ visible: true, size: 24, opacity: 0.24 }
 const saveState = ref<SaveFeedbackState>('idle')
 const lastSavedAt = ref<string>()
 const copiedInspectorText = ref('')
+const assetRows = ref<AssetDTO[]>([])
+const assetResult = ref<AssetLibraryResultDTO>()
+const assetLoading = ref(false)
+const assetImporting = ref(false)
+const assetImportPath = ref(DEFAULT_ASSET_IMPORT_SOURCE)
+const assetImportRole = ref(DEFAULT_ASSET_IMPORT_ROLE)
+const assetDuplicatePolicy = ref<AssetDuplicatePolicy>('cancel')
+const assetManagedReference = ref(false)
 const scriptDocument = ref<ScriptDocumentDTO>()
 const scriptResult = ref<ScriptDocumentResultDTO>()
 const scriptTitle = ref('Alpha Script')
@@ -159,12 +176,6 @@ const railItems = [
   { key: 'history', icon: () => h(HistoryOutlined), label: 'History' },
 ]
 
-const assets = [
-  { name: 'hero-reference.png', type: 'image', status: 'ready' },
-  { name: 'night-market-scene.mov', type: 'video', status: 'missing link' },
-  { name: 'dialogue-source.txt', type: 'script', status: 'draft' },
-]
-
 const queueItems = [
   { label: 'Package export', value: 'idle' },
   { label: 'Mock run', value: 'not configured' },
@@ -173,6 +184,32 @@ const queueItems = [
 
 const graphCanvas = computed(() => activeGraphCanvas.value)
 const graphErrors = computed(() => graphResult.value?.errors || [])
+const assetSummary = computed(() => {
+  const missing = assetRows.value.filter((asset) => asset.missing).length
+  const managed = assetRows.value.filter((asset) => asset.source.kind === 'managed_reference').length
+  return `${assetRows.value.length} assets · ${missing} missing · ${managed} managed`
+})
+const assetRecoveryActions = computed(() => assetResult.value?.error?.recoveryActions || [])
+const assetStatusType = computed(() => {
+  if (assetResult.value?.error?.severity === 'blocking' || assetResult.value?.error?.severity === 'error') {
+    return 'error'
+  }
+  if (assetResult.value?.error || assetRows.value.some((asset) => asset.missing || asset.thumbnailStatus === 'thumbnail_failed')) {
+    return 'warning'
+  }
+  return assetResult.value?.ok ? 'success' : 'info'
+})
+const assetEventLabel = computed(() => latestEventSummary([], assetResult.value?.events || [], []))
+const operationalEvents = computed(() => [
+  ...(projectResult.value?.events || []),
+  ...(assetResult.value?.events || []),
+  ...(scriptResult.value?.events || []),
+  ...(sceneResult.value?.events || []),
+])
+const auditHealthItems = computed(() => [
+  ...(projectResult.value?.health?.items || []),
+  ...(assetResult.value?.health?.items || []),
+])
 const graphTheme = computed<CanvasTheme>(() => themeMode.value === 'warm' ? 'warm_light' : 'dark')
 const selectedGraphNodeIDs = computed(() => selectedGraphNodes.value.length > 0
   ? selectedGraphNodes.value.map((node) => node.id)
@@ -187,6 +224,7 @@ const saveBadge = computed(() => summarizeSaveState(saveState.value, lastSavedAt
 const visibleErrors = computed(() => [
   graphResult.value?.error,
   projectResult.value?.error,
+  assetResult.value?.error,
   scriptResult.value?.error,
   sceneResult.value?.error,
   shotContextResult.value?.error,
@@ -196,6 +234,7 @@ const visibleErrors = computed(() => [
 const healthStatus = computed(() => highestHealthStatus([
   graphResult.value?.health,
   projectResult.value?.health,
+  assetResult.value?.health,
 ], visibleErrors.value))
 const healthStatusTone = computed(() => healthTone(healthStatus.value))
 const errorSummary = computed(() => firstErrorSummary([
@@ -205,6 +244,7 @@ const latestEventLabel = computed(() => latestEventSummary(
   graphResult.value?.events,
   [
     ...(projectResult.value?.events || []),
+    ...(assetResult.value?.events || []),
     ...(scriptResult.value?.events || []),
     ...(sceneResult.value?.events || []),
     ...(shotContextResult.value?.events || []),
@@ -295,7 +335,34 @@ const shotContextReferenceRows = computed(() => shotContextReport.value?.referen
 
 onMounted(() => {
   void loadProjectGraph()
+  void loadAssetRows()
 })
+
+async function loadAssetRows() {
+  assetLoading.value = true
+  assetResult.value = await listAssets()
+  assetRows.value = assetResult.value.assets
+  if (!assetResult.value.ok) {
+    activeInspectorTab.value = 'tasks'
+  }
+  assetLoading.value = false
+}
+
+async function importCurrentAsset() {
+  assetImporting.value = true
+  const previousRows = assetRows.value
+  assetResult.value = await importAsset({
+    sourcePath: assetImportPath.value,
+    role: assetImportRole.value,
+    duplicatePolicy: assetDuplicatePolicy.value,
+    managedReference: assetManagedReference.value,
+  })
+  assetRows.value = assetResult.value.ok || assetResult.value.assets.length > 0
+    ? assetResult.value.assets
+    : previousRows
+  activeInspectorTab.value = 'tasks'
+  assetImporting.value = false
+}
 
 async function runProbe(mode: WorkbenchProbeMode) {
   probeLoading.value = true
@@ -575,6 +642,29 @@ function splitList(value: string): string[] {
   return value.split(',').map((item) => item.trim()).filter(Boolean)
 }
 
+function assetTone(asset: AssetDTO): string {
+  if (asset.missing) {
+    return 'error'
+  }
+  if (asset.thumbnailStatus === 'thumbnail_failed' || asset.source.kind === 'managed_reference') {
+    return 'warning'
+  }
+  return 'success'
+}
+
+function assetStatusText(asset: AssetDTO): string {
+  const state = asset.missing ? 'missing' : asset.thumbnailStatus
+  return `${asset.type} · ${asset.role} · ${state}`
+}
+
+function assetDetailText(asset: AssetDTO): string {
+  return [
+    `digest ${asset.digestSummary || '-'}`,
+    asset.source.kind,
+    `${asset.bindingCount} bindings`,
+  ].join(' · ')
+}
+
 function shotIDFromNode(node: GraphNodeDTO | undefined): string {
   const refId = node?.kind === 'shot' ? node.refId || '' : ''
   const filename = refId.split('/').pop() || ''
@@ -605,7 +695,7 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
           </Tag>
           <Badge :status="graphCanvas ? 'success' : 'default'" :text="`Graph ${graphCanvas?.version ?? '-'}`" />
           <Tag :color="healthStatusTone">Health {{ healthStatus }}</Tag>
-          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0) + (scriptResult?.events.length || 0) + (sceneResult?.events.length || 0)}`" />
+          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0) + (assetResult?.events.length || 0) + (scriptResult?.events.length || 0) + (sceneResult?.events.length || 0)}`" />
           <Segmented
             v-model:value="themeMode"
             class="theme-switch"
@@ -659,37 +749,97 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
 
           <Tabs v-model:activeKey="activeRailTab" size="small" class="rail-tabs">
             <TabPane key="assets" tab="Assets">
-              <div class="rail-toolbar">
-                <Button size="small" type="primary">
-                  <template #icon>
-                    <FolderOpenOutlined />
-                  </template>
-                  Import
-                </Button>
-                <Button size="small">
-                  <template #icon>
-                    <SearchOutlined />
-                  </template>
-                  Filter
-                </Button>
+              <div class="asset-import-panel">
+                <label class="script-field">
+                  <span>Source path</span>
+                  <input
+                    v-model="assetImportPath"
+                    class="script-input"
+                    type="text"
+                    autocomplete="off"
+                  >
+                </label>
+                <div class="asset-import-grid">
+                  <label class="script-field">
+                    <span>Role</span>
+                    <input
+                      v-model="assetImportRole"
+                      class="script-input"
+                      type="text"
+                      autocomplete="off"
+                    >
+                  </label>
+                  <label class="script-field">
+                    <span>Duplicate</span>
+                    <select v-model="assetDuplicatePolicy" class="script-input">
+                      <option value="cancel">Cancel</option>
+                      <option value="reuse">Reuse</option>
+                      <option value="copy">Copy</option>
+                    </select>
+                  </label>
+                </div>
+                <label class="check-row">
+                  <input v-model="assetManagedReference" type="checkbox">
+                  <span>Managed reference</span>
+                </label>
+                <div class="rail-toolbar">
+                  <Button size="small" type="primary" :loading="assetImporting" :disabled="!assetImportPath.trim()" @click="importCurrentAsset">
+                    <template #icon>
+                      <FolderOpenOutlined />
+                    </template>
+                    Import
+                  </Button>
+                  <Button size="small" :loading="assetLoading" @click="loadAssetRows">
+                    <template #icon>
+                      <ReloadOutlined />
+                    </template>
+                    List
+                  </Button>
+                </div>
               </div>
-              <List class="asset-list" item-layout="horizontal" size="small" :data-source="assets">
+              <Alert
+                v-if="assetResult"
+                class="service-alert"
+                :type="assetStatusType"
+                show-icon
+                :message="assetResult.error?.userMessage || assetSummary"
+                :description="assetResult.duplicate ? `duplicate ${assetResult.duplicate.existingAssetId}` : assetEventLabel"
+              />
+              <List
+                v-if="assetRecoveryActions.length"
+                class="recovery-list"
+                size="small"
+                :data-source="assetRecoveryActions"
+              >
+                <template #renderItem="{ item }">
+                  <ListItem>
+                    <span>{{ item }}</span>
+                  </ListItem>
+                </template>
+              </List>
+              <List class="asset-list" item-layout="horizontal" size="small" :data-source="assetRows">
                 <template #renderItem="{ item }">
                   <ListItem>
                     <ListItemMeta>
                       <template #avatar>
-                        <div class="asset-thumb">{{ item.type }}</div>
+                        <div class="asset-thumb" :class="`asset-thumb--${assetTone(item)}`">{{ item.type }}</div>
                       </template>
                       <template #title>
-                        <strong class="asset-title" :title="item.name">{{ item.name }}</strong>
+                        <strong class="asset-title" :title="item.relativePath">{{ item.originalName || item.id }}</strong>
                       </template>
                       <template #description>
-                        <span class="asset-status">{{ item.status }}</span>
+                        <span class="asset-status">{{ assetStatusText(item) }}</span>
+                        <span class="asset-status">{{ assetDetailText(item) }}</span>
                       </template>
                     </ListItemMeta>
+                    <Tag :color="assetTone(item)">{{ item.missing ? 'missing' : item.thumbnailStatus }}</Tag>
                   </ListItem>
                 </template>
               </List>
+              <div v-if="!assetRows.length && !assetLoading" class="placeholder-list">
+                <strong>No indexed assets</strong>
+                <span>{{ assetSummary }}</span>
+              </div>
             </TabPane>
             <TabPane key="script" tab="Script">
               <div class="script-editor">
@@ -1431,7 +1581,7 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
                     </ListItem>
                   </template>
                 </List>
-                <List v-if="projectResult?.events.length" class="event-list" size="small" :data-source="projectResult.events">
+                <List v-if="operationalEvents.length" class="event-list" size="small" :data-source="operationalEvents">
                   <template #renderItem="{ item }">
                     <ListItem>
                       <ListItemMeta>
@@ -1447,39 +1597,7 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
                     </ListItem>
                   </template>
                 </List>
-                <List v-if="scriptResult?.events.length" class="event-list" size="small" :data-source="scriptResult.events">
-                  <template #renderItem="{ item }">
-                    <ListItem>
-                      <ListItemMeta>
-                        <template #title>
-                          <strong class="event-title">
-                            {{ item.eventType }} · {{ item.state }}
-                          </strong>
-                        </template>
-                        <template #description>
-                          <span>{{ item.summary }} · {{ item.createdAt }}</span>
-                        </template>
-                      </ListItemMeta>
-                    </ListItem>
-                  </template>
-                </List>
-                <List v-if="sceneResult?.events.length" class="event-list" size="small" :data-source="sceneResult.events">
-                  <template #renderItem="{ item }">
-                    <ListItem>
-                      <ListItemMeta>
-                        <template #title>
-                          <strong class="event-title">
-                            {{ item.eventType }} · {{ item.state }}
-                          </strong>
-                        </template>
-                        <template #description>
-                          <span>{{ item.summary }} · {{ item.createdAt }}</span>
-                        </template>
-                      </ListItemMeta>
-                    </ListItem>
-                  </template>
-                </List>
-                <div v-if="!runtimeEvents.length && !projectResult?.events.length && !scriptResult?.events.length && !sceneResult?.events.length" class="placeholder-list">
+                <div v-if="!runtimeEvents.length && !operationalEvents.length" class="placeholder-list">
                   <strong>No run records</strong>
                   <span>{{ latestEventLabel }}</span>
                 </div>
@@ -1528,10 +1646,10 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
                   </template>
                 </List>
                 <List
-                  v-if="projectResult?.health?.items.length"
+                  v-if="auditHealthItems.length"
                   class="recovery-list"
                   size="small"
-                  :data-source="projectResult.health.items"
+                  :data-source="auditHealthItems"
                 >
                   <template #renderItem="{ item }">
                     <ListItem>
