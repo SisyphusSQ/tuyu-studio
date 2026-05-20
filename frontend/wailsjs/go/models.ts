@@ -94,6 +94,114 @@ export namespace project {
 	        this.correlationId = source["correlationId"];
 	    }
 	}
+	export class ScriptSourceRange {
+	    startLine: number;
+	    endLine: number;
+
+	    static createFrom(source: any = {}) {
+	        return new ScriptSourceRange(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.startLine = source["startLine"];
+	        this.endLine = source["endLine"];
+	    }
+	}
+	export class DialogueLineDTO {
+	    characterName: string;
+	    text: string;
+	    intent?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new DialogueLineDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.characterName = source["characterName"];
+	        this.text = source["text"];
+	        this.intent = source["intent"];
+	    }
+	}
+	export class ConfirmScriptSceneCommand {
+	    root: string;
+	    scriptId?: string;
+	    sceneId?: string;
+	    title: string;
+	    location: string;
+	    timeOfDay?: string;
+	    characters: string[];
+	    props: string[];
+	    action: string;
+	    dialogue: DialogueLineDTO[];
+	    emotionalBeat?: string;
+	    sourceRange: ScriptSourceRange;
+	    allowOverlap: boolean;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ConfirmScriptSceneCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.scriptId = source["scriptId"];
+	        this.sceneId = source["sceneId"];
+	        this.title = source["title"];
+	        this.location = source["location"];
+	        this.timeOfDay = source["timeOfDay"];
+	        this.characters = source["characters"];
+	        this.props = source["props"];
+	        this.action = source["action"];
+	        this.dialogue = this.convertValues(source["dialogue"], DialogueLineDTO);
+	        this.emotionalBeat = source["emotionalBeat"];
+	        this.sourceRange = this.convertValues(source["sourceRange"], ScriptSourceRange);
+	        this.allowOverlap = source["allowOverlap"];
+	        this.correlationId = source["correlationId"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ConfirmShotCandidateCommand {
+	    root: string;
+	    scriptId?: string;
+	    candidateId: string;
+	    shotId?: string;
+	    confirmedBy?: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ConfirmShotCandidateCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.scriptId = source["scriptId"];
+	        this.candidateId = source["candidateId"];
+	        this.shotId = source["shotId"];
+	        this.confirmedBy = source["confirmedBy"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 	export class CreateProjectCommand {
 	    root: string;
 	    projectId: string;
@@ -114,22 +222,7 @@ export namespace project {
 	        this.correlationId = source["correlationId"];
 	    }
 	}
-	export class DialogueLineDTO {
-	    characterName: string;
-	    text: string;
-	    intent?: string;
 
-	    static createFrom(source: any = {}) {
-	        return new DialogueLineDTO(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.characterName = source["characterName"];
-	        this.text = source["text"];
-	        this.intent = source["intent"];
-	    }
-	}
 	export class FrameHistorySummaryDTO {
 	    currentRunId?: string;
 	    favoriteRunIds: string[];
@@ -606,6 +699,22 @@ export namespace project {
 	}
 
 
+	export class ListShotCandidatesCommand {
+	    root: string;
+	    scriptId?: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ListShotCandidatesCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.scriptId = source["scriptId"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 	export class LoadScriptDocumentCommand {
 	    root: string;
 	    scriptId?: string;
@@ -714,6 +823,26 @@ export namespace project {
 
 
 
+	export class RejectShotCandidateCommand {
+	    root: string;
+	    scriptId?: string;
+	    candidateId: string;
+	    rejectionReason?: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new RejectShotCandidateCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.scriptId = source["scriptId"];
+	        this.candidateId = source["candidateId"];
+	        this.rejectionReason = source["rejectionReason"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 	export class SaveGraphLayoutCommand {
 	    root: string;
 	    expectedGraphVersion: number;
@@ -796,19 +925,71 @@ export namespace project {
 	        this.correlationId = source["correlationId"];
 	    }
 	}
-	export class ScriptSourceRange {
-	    startLine: number;
-	    endLine: number;
+	export class ShotCharacterRefDTO {
+	    characterId?: string;
+	    name: string;
+	    description?: string;
+	    referenceAssetId?: string;
 
 	    static createFrom(source: any = {}) {
-	        return new ScriptSourceRange(source);
+	        return new ShotCharacterRefDTO(source);
 	    }
 
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.startLine = source["startLine"];
-	        this.endLine = source["endLine"];
+	        this.characterId = source["characterId"];
+	        this.name = source["name"];
+	        this.description = source["description"];
+	        this.referenceAssetId = source["referenceAssetId"];
 	    }
+	}
+	export class SaveShotCandidateCommand {
+	    root: string;
+	    scriptId?: string;
+	    candidateId?: string;
+	    scriptSceneId: string;
+	    index: number;
+	    durationSeconds: number;
+	    visualDescription: string;
+	    characterRefs: ShotCharacterRefDTO[];
+	    sourceRange: ScriptSourceRange;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new SaveShotCandidateCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.scriptId = source["scriptId"];
+	        this.candidateId = source["candidateId"];
+	        this.scriptSceneId = source["scriptSceneId"];
+	        this.index = source["index"];
+	        this.durationSeconds = source["durationSeconds"];
+	        this.visualDescription = source["visualDescription"];
+	        this.characterRefs = this.convertValues(source["characterRefs"], ShotCharacterRefDTO);
+	        this.sourceRange = this.convertValues(source["sourceRange"], ScriptSourceRange);
+	        this.correlationId = source["correlationId"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class ScriptSceneDTO {
 	    id: string;
@@ -944,6 +1125,181 @@ export namespace project {
 		    return a;
 		}
 	}
+	export class ShotCardDTO {
+	    id: string;
+	    projectId: string;
+	    sceneId: string;
+	    sourceCandidateId: string;
+	    scriptSceneId: string;
+	    index: number;
+	    title: string;
+	    description: string;
+	    durationSeconds: number;
+	    aspectRatio: string;
+	    shotType: string;
+	    cameraMovement: string;
+	    action: string;
+	    emotion: string;
+	    characterIds: string[];
+	    characterRefs: ShotCharacterRefDTO[];
+	    sourceRange: ScriptSourceRange;
+	    status: string;
+	    confirmedBy: string;
+	    confirmedAt: string;
+	    overwrittenFields: string[];
+	    createdAt: string;
+	    updatedAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ShotCardDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.projectId = source["projectId"];
+	        this.sceneId = source["sceneId"];
+	        this.sourceCandidateId = source["sourceCandidateId"];
+	        this.scriptSceneId = source["scriptSceneId"];
+	        this.index = source["index"];
+	        this.title = source["title"];
+	        this.description = source["description"];
+	        this.durationSeconds = source["durationSeconds"];
+	        this.aspectRatio = source["aspectRatio"];
+	        this.shotType = source["shotType"];
+	        this.cameraMovement = source["cameraMovement"];
+	        this.action = source["action"];
+	        this.emotion = source["emotion"];
+	        this.characterIds = source["characterIds"];
+	        this.characterRefs = this.convertValues(source["characterRefs"], ShotCharacterRefDTO);
+	        this.sourceRange = this.convertValues(source["sourceRange"], ScriptSourceRange);
+	        this.status = source["status"];
+	        this.confirmedBy = source["confirmedBy"];
+	        this.confirmedAt = source["confirmedAt"];
+	        this.overwrittenFields = source["overwrittenFields"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ShotCandidateDTO {
+	    id: string;
+	    projectId: string;
+	    scriptId: string;
+	    scriptSceneId: string;
+	    index: number;
+	    durationSeconds: number;
+	    visualDescription: string;
+	    characterRefs: ShotCharacterRefDTO[];
+	    sourceRange: ScriptSourceRange;
+	    status: string;
+	    shotId?: string;
+	    rejectionReason?: string;
+	    createdAt: string;
+	    updatedAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ShotCandidateDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.projectId = source["projectId"];
+	        this.scriptId = source["scriptId"];
+	        this.scriptSceneId = source["scriptSceneId"];
+	        this.index = source["index"];
+	        this.durationSeconds = source["durationSeconds"];
+	        this.visualDescription = source["visualDescription"];
+	        this.characterRefs = this.convertValues(source["characterRefs"], ShotCharacterRefDTO);
+	        this.sourceRange = this.convertValues(source["sourceRange"], ScriptSourceRange);
+	        this.status = source["status"];
+	        this.shotId = source["shotId"];
+	        this.rejectionReason = source["rejectionReason"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ScriptSceneCandidateResult {
+	    ok: boolean;
+	    document?: ScriptDocumentDTO;
+	    candidate?: ShotCandidateDTO;
+	    candidates: ShotCandidateDTO[];
+	    shot?: ShotCardDTO;
+	    error?: OperationError;
+	    events: ProjectEvent[];
+
+	    static createFrom(source: any = {}) {
+	        return new ScriptSceneCandidateResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.document = this.convertValues(source["document"], ScriptDocumentDTO);
+	        this.candidate = this.convertValues(source["candidate"], ShotCandidateDTO);
+	        this.candidates = this.convertValues(source["candidates"], ShotCandidateDTO);
+	        this.shot = this.convertValues(source["shot"], ShotCardDTO);
+	        this.error = this.convertValues(source["error"], OperationError);
+	        this.events = this.convertValues(source["events"], ProjectEvent);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+
+
 
 
 }

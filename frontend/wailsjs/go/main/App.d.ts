@@ -21,6 +21,16 @@ export function ProjectScriptDocumentLoad(arg1:project.LoadScriptDocumentCommand
 
 export function ProjectScriptDocumentSave(arg1:project.SaveScriptDocumentCommand):Promise<project.ScriptDocumentResult>;
 
+export function ProjectScriptSceneConfirm(arg1:project.ConfirmScriptSceneCommand):Promise<project.ScriptSceneCandidateResult>;
+
+export function ProjectShotCandidateConfirm(arg1:project.ConfirmShotCandidateCommand):Promise<project.ScriptSceneCandidateResult>;
+
+export function ProjectShotCandidateReject(arg1:project.RejectShotCandidateCommand):Promise<project.ScriptSceneCandidateResult>;
+
+export function ProjectShotCandidateSave(arg1:project.SaveShotCandidateCommand):Promise<project.ScriptSceneCandidateResult>;
+
+export function ProjectShotCandidatesList(arg1:project.ListShotCandidatesCommand):Promise<project.ScriptSceneCandidateResult>;
+
 export function ShellHealth():Promise<shell.Health>;
 
 export function WorkbenchProbe(arg1:shell.WorkbenchProbeCommand):Promise<shell.WorkbenchProbeResult>;

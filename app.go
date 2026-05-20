@@ -65,3 +65,23 @@ func (a *App) ProjectScriptDocumentSave(command project.SaveScriptDocumentComman
 func (a *App) ProjectScriptDocumentLoad(command project.LoadScriptDocumentCommand) project.ScriptDocumentResult {
 	return a.service.ProjectScriptDocumentLoad(command)
 }
+
+func (a *App) ProjectScriptSceneConfirm(command project.ConfirmScriptSceneCommand) project.ScriptSceneCandidateResult {
+	return a.service.ProjectScriptSceneConfirm(command)
+}
+
+func (a *App) ProjectShotCandidateSave(command project.SaveShotCandidateCommand) project.ScriptSceneCandidateResult {
+	return a.service.ProjectShotCandidateSave(command)
+}
+
+func (a *App) ProjectShotCandidatesList(command project.ListShotCandidatesCommand) project.ScriptSceneCandidateResult {
+	return a.service.ProjectShotCandidatesList(command)
+}
+
+func (a *App) ProjectShotCandidateConfirm(command project.ConfirmShotCandidateCommand) project.ScriptSceneCandidateResult {
+	return a.service.ProjectShotCandidateConfirm(command)
+}
+
+func (a *App) ProjectShotCandidateReject(command project.RejectShotCandidateCommand) project.ScriptSceneCandidateResult {
+	return a.service.ProjectShotCandidateReject(command)
+}

@@ -38,6 +38,26 @@ export function ProjectScriptDocumentSave(arg1) {
   return window['go']['main']['App']['ProjectScriptDocumentSave'](arg1);
 }
 
+export function ProjectScriptSceneConfirm(arg1) {
+  return window['go']['main']['App']['ProjectScriptSceneConfirm'](arg1);
+}
+
+export function ProjectShotCandidateConfirm(arg1) {
+  return window['go']['main']['App']['ProjectShotCandidateConfirm'](arg1);
+}
+
+export function ProjectShotCandidateReject(arg1) {
+  return window['go']['main']['App']['ProjectShotCandidateReject'](arg1);
+}
+
+export function ProjectShotCandidateSave(arg1) {
+  return window['go']['main']['App']['ProjectShotCandidateSave'](arg1);
+}
+
+export function ProjectShotCandidatesList(arg1) {
+  return window['go']['main']['App']['ProjectShotCandidatesList'](arg1);
+}
+
 export function ShellHealth() {
   return window['go']['main']['App']['ShellHealth']();
 }

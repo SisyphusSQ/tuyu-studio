@@ -141,6 +141,59 @@ export interface LoadScriptDocumentCommandDTO {
   correlationId: string
 }
 
+export interface ConfirmScriptSceneCommandDTO {
+  root: string
+  scriptId?: string
+  sceneId?: string
+  title: string
+  location: string
+  timeOfDay?: string
+  characters: string[]
+  props: string[]
+  action: string
+  dialogue: DialogueLineDTO[]
+  emotionalBeat?: string
+  sourceRange: ScriptSourceRangeDTO
+  allowOverlap: boolean
+  correlationId: string
+}
+
+export interface SaveShotCandidateCommandDTO {
+  root: string
+  scriptId?: string
+  candidateId?: string
+  scriptSceneId: string
+  index: number
+  durationSeconds: number
+  visualDescription: string
+  characterRefs: ShotCharacterRefDTO[]
+  sourceRange: ScriptSourceRangeDTO
+  correlationId: string
+}
+
+export interface ListShotCandidatesCommandDTO {
+  root: string
+  scriptId?: string
+  correlationId: string
+}
+
+export interface ConfirmShotCandidateCommandDTO {
+  root: string
+  scriptId?: string
+  candidateId: string
+  shotId?: string
+  confirmedBy?: string
+  correlationId: string
+}
+
+export interface RejectShotCandidateCommandDTO {
+  root: string
+  scriptId?: string
+  candidateId: string
+  rejectionReason?: string
+  correlationId: string
+}
+
 export interface CanvasViewportDTO {
   x: number
   y: number
@@ -291,6 +344,66 @@ export interface ScriptDocumentDTO {
 export interface ScriptDocumentResultDTO {
   ok: boolean
   document?: ScriptDocumentDTO
+  error?: AppErrorDTO
+  events: ProjectEventDTO[]
+}
+
+export interface ShotCharacterRefDTO {
+  characterId?: string
+  name: string
+  description?: string
+  referenceAssetId?: string
+}
+
+export interface ShotCandidateDTO {
+  id: string
+  projectId: string
+  scriptId: string
+  scriptSceneId: string
+  index: number
+  durationSeconds: number
+  visualDescription: string
+  characterRefs: ShotCharacterRefDTO[]
+  sourceRange: ScriptSourceRangeDTO
+  status: 'candidate' | 'accepted' | 'rejected' | string
+  shotId?: string
+  rejectionReason?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ShotCardDTO {
+  id: string
+  projectId: string
+  sceneId: string
+  sourceCandidateId: string
+  scriptSceneId: string
+  index: number
+  title: string
+  description: string
+  durationSeconds: number
+  aspectRatio: string
+  shotType: string
+  cameraMovement: string
+  action: string
+  emotion: string
+  characterIds: string[]
+  characterRefs: ShotCharacterRefDTO[]
+  sourceRange: ScriptSourceRangeDTO
+  status: string
+  confirmedBy: string
+  confirmedAt: string
+  overwrittenFields: string[]
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ScriptSceneCandidateResultDTO {
+  ok: boolean
+  document?: ScriptDocumentDTO
+  candidate?: ShotCandidateDTO
+  candidates: ShotCandidateDTO[]
+  shot?: ShotCardDTO
   error?: AppErrorDTO
   events: ProjectEventDTO[]
 }
@@ -447,6 +560,40 @@ export function normalizeScriptDocumentResult(
   }
 }
 
+export function normalizeScriptSceneCandidateResult(
+  result: Partial<ScriptSceneCandidateResultDTO> | null | undefined,
+  correlationId: string,
+): ScriptSceneCandidateResultDTO {
+  if (!result) {
+    return {
+      ok: false,
+      error: normalizeUnknownError(new Error('empty script scene candidate response'), correlationId),
+      candidates: [],
+      events: [],
+    }
+  }
+
+  const events = Array.isArray(result.events)
+    ? result.events.map((event) => ({
+      ...event,
+      error: event.error ? normalizeAppError(event.error, correlationId) : undefined,
+      nextActions: Array.isArray(event.nextActions) ? event.nextActions : [],
+    }))
+    : []
+
+  return {
+    ok: Boolean(result.ok),
+    document: result.document ? normalizeScriptDocument(result.document) : undefined,
+    candidate: result.candidate ? normalizeShotCandidate(result.candidate) : undefined,
+    candidates: Array.isArray(result.candidates)
+      ? result.candidates.map((candidate) => normalizeShotCandidate(candidate))
+      : [],
+    shot: result.shot ? normalizeShotCard(result.shot) : undefined,
+    error: result.error ? normalizeAppError(result.error, correlationId) : undefined,
+    events,
+  }
+}
+
 function normalizeProjectCanvas(canvas: ProjectCanvasDTO): ProjectCanvasDTO {
   return {
     ...canvas,
@@ -484,6 +631,53 @@ function normalizeProjectCanvas(canvas: ProjectCanvasDTO): ProjectCanvasDTO {
       }))
       : [],
     selectedNodeIds: Array.isArray(canvas.selectedNodeIds) ? canvas.selectedNodeIds : [],
+  }
+}
+
+function normalizeShotCandidate(candidate: Partial<ShotCandidateDTO>): ShotCandidateDTO {
+  return {
+    id: candidate.id || '',
+    projectId: candidate.projectId || '',
+    scriptId: candidate.scriptId || '',
+    scriptSceneId: candidate.scriptSceneId || '',
+    index: Number(candidate.index || 0),
+    durationSeconds: Number(candidate.durationSeconds || 0),
+    visualDescription: candidate.visualDescription || '',
+    characterRefs: Array.isArray(candidate.characterRefs) ? candidate.characterRefs : [],
+    sourceRange: candidate.sourceRange || { startLine: 0, endLine: 0 },
+    status: candidate.status || 'candidate',
+    shotId: candidate.shotId,
+    rejectionReason: candidate.rejectionReason,
+    createdAt: candidate.createdAt || '',
+    updatedAt: candidate.updatedAt || '',
+  }
+}
+
+function normalizeShotCard(shot: Partial<ShotCardDTO>): ShotCardDTO {
+  return {
+    id: shot.id || '',
+    projectId: shot.projectId || '',
+    sceneId: shot.sceneId || '',
+    sourceCandidateId: shot.sourceCandidateId || '',
+    scriptSceneId: shot.scriptSceneId || '',
+    index: Number(shot.index || 0),
+    title: shot.title || '',
+    description: shot.description || '',
+    durationSeconds: Number(shot.durationSeconds || 0),
+    aspectRatio: shot.aspectRatio || '',
+    shotType: shot.shotType || '',
+    cameraMovement: shot.cameraMovement || '',
+    action: shot.action || '',
+    emotion: shot.emotion || '',
+    characterIds: Array.isArray(shot.characterIds) ? shot.characterIds : [],
+    characterRefs: Array.isArray(shot.characterRefs) ? shot.characterRefs : [],
+    sourceRange: shot.sourceRange || { startLine: 0, endLine: 0 },
+    status: shot.status || '',
+    confirmedBy: shot.confirmedBy || '',
+    confirmedAt: shot.confirmedAt || '',
+    overwrittenFields: Array.isArray(shot.overwrittenFields) ? shot.overwrittenFields : [],
+    createdAt: shot.createdAt || '',
+    updatedAt: shot.updatedAt || '',
   }
 }
 
