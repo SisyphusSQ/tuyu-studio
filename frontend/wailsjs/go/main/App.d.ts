@@ -5,3 +5,5 @@ import {shell} from '../models';
 export function AppInfo():Promise<shell.Info>;
 
 export function ShellHealth():Promise<shell.Health>;
+
+export function WorkbenchProbe(arg1:shell.WorkbenchProbeCommand):Promise<shell.WorkbenchProbeResult>;

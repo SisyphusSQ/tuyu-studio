@@ -28,3 +28,7 @@ func (a *App) AppInfo() shell.Info {
 func (a *App) ShellHealth() shell.Health {
 	return a.service.Health()
 }
+
+func (a *App) WorkbenchProbe(command shell.WorkbenchProbeCommand) shell.WorkbenchProbeResult {
+	return a.service.WorkbenchProbe(command)
+}
