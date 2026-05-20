@@ -1209,6 +1209,8 @@ func summaryFromManifest(root string, manifest Manifest, lockInfo LockInfo) Proj
 			"project_save",
 			"project_lock",
 			"project_health_check",
+			"project_graph_view",
+			"project_graph_layout_save",
 		},
 	}
 }

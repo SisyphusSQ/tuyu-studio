@@ -256,6 +256,42 @@ export namespace project {
 		    return a;
 		}
 	}
+	export class GraphNodeLayoutCommand {
+	    id: string;
+	    position: CanvasPositionDTO;
+	    size?: CanvasSizeDTO;
+	    collapsed: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new GraphNodeLayoutCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.position = this.convertValues(source["position"], CanvasPositionDTO);
+	        this.size = this.convertValues(source["size"], CanvasSizeDTO);
+	        this.collapsed = source["collapsed"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class GraphViewCommand {
 	    root: string;
 	    expectedGraphVersion?: number;
@@ -646,6 +682,48 @@ export namespace project {
 
 
 
+	export class SaveGraphLayoutCommand {
+	    root: string;
+	    expectedGraphVersion: number;
+	    viewport: CanvasViewportDTO;
+	    theme: string;
+	    grid: CanvasGridDTO;
+	    nodes: GraphNodeLayoutCommand[];
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new SaveGraphLayoutCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.expectedGraphVersion = source["expectedGraphVersion"];
+	        this.viewport = this.convertValues(source["viewport"], CanvasViewportDTO);
+	        this.theme = source["theme"];
+	        this.grid = this.convertValues(source["grid"], CanvasGridDTO);
+	        this.nodes = this.convertValues(source["nodes"], GraphNodeLayoutCommand);
+	        this.correlationId = source["correlationId"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 	export class SaveProjectCommand {
 	    root: string;
 	    correlationId: string;

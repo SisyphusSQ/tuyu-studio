@@ -18,8 +18,8 @@ func TestServiceInfo(t *testing.T) {
 	if info.StartedAt != "2026-05-20T03:00:00Z" {
 		t.Fatalf("StartedAt = %q, want RFC3339 UTC", info.StartedAt)
 	}
-	if len(info.Capabilities) != 9 {
-		t.Fatalf("Capabilities length = %d, want 9", len(info.Capabilities))
+	if len(info.Capabilities) != 10 {
+		t.Fatalf("Capabilities length = %d, want 10", len(info.Capabilities))
 	}
 }
 

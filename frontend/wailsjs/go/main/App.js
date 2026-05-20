@@ -10,6 +10,10 @@ export function ProjectCreate(arg1) {
   return window['go']['main']['App']['ProjectCreate'](arg1);
 }
 
+export function ProjectGraphLayoutSave(arg1) {
+  return window['go']['main']['App']['ProjectGraphLayoutSave'](arg1);
+}
+
 export function ProjectGraphView(arg1) {
   return window['go']['main']['App']['ProjectGraphView'](arg1);
 }

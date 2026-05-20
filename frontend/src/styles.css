@@ -298,8 +298,134 @@ h2 {
 .canvas-stage {
   min-width: 0;
   min-height: 0;
-  padding: 24px;
+  padding: 16px;
   overflow: hidden;
+}
+
+.graph-canvas {
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  overflow: hidden;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: #121813;
+}
+
+.graph-canvas--warm {
+  background: #f9f3e8;
+}
+
+.graph-canvas-surface {
+  position: absolute;
+  inset: 0;
+}
+
+.graph-canvas-empty,
+.graph-canvas-busy,
+.graph-canvas-error,
+.graph-canvas-overlay {
+  position: absolute;
+  z-index: 4;
+}
+
+.graph-canvas-empty,
+.graph-canvas-busy,
+.graph-canvas-error {
+  left: 18px;
+  bottom: 18px;
+  display: grid;
+  gap: 4px;
+  max-width: min(420px, calc(100% - 36px));
+  padding: 12px 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  color: var(--text-main);
+  background: rgba(14, 20, 16, 0.88);
+}
+
+.graph-canvas--warm .graph-canvas-empty,
+.graph-canvas--warm .graph-canvas-busy,
+.graph-canvas--warm .graph-canvas-error {
+  color: #2e332d;
+  background: rgba(255, 250, 241, 0.92);
+}
+
+.graph-canvas-empty span,
+.graph-canvas-busy span,
+.graph-canvas-error span,
+.graph-canvas-selection span,
+.graph-canvas-issues span,
+.graph-canvas-stats span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.graph-canvas-error {
+  border-color: rgba(182, 87, 87, 0.56);
+}
+
+.graph-canvas-overlay {
+  pointer-events: none;
+  inset: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto 1fr auto;
+  gap: 12px;
+}
+
+.graph-canvas-stats,
+.graph-canvas-selection,
+.graph-canvas-issues {
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  width: fit-content;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: rgba(13, 18, 15, 0.78);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.graph-canvas--warm .graph-canvas-stats,
+.graph-canvas--warm .graph-canvas-selection,
+.graph-canvas--warm .graph-canvas-issues {
+  background: rgba(255, 250, 241, 0.9);
+}
+
+.graph-canvas-stats {
+  grid-column: 1 / 2;
+  grid-row: 1;
+}
+
+.graph-canvas-selection {
+  grid-column: 1 / 2;
+  grid-row: 3;
+}
+
+.graph-canvas-selection strong,
+.graph-canvas-issues strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.graph-canvas-issues {
+  grid-column: 2 / 3;
+  grid-row: 1;
+  justify-self: end;
+  flex-direction: column;
+  align-items: flex-start;
+  border-color: rgba(200, 132, 45, 0.54);
 }
 
 .production-frame {
