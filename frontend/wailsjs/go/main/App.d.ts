@@ -33,6 +33,12 @@ export function ProjectHealth(arg1:project.CheckProjectHealthCommand):Promise<pr
 
 export function ProjectMainReferenceSet(arg1:project.SetMainReferenceCommand):Promise<project.ContinuityLibraryResult>;
 
+export function ProjectMockRunCancel(arg1:project.MockRunCommand):Promise<project.MockRunResult>;
+
+export function ProjectMockRunRetry(arg1:project.MockRunCommand):Promise<project.MockRunResult>;
+
+export function ProjectMockRunStart(arg1:project.MockRunCommand):Promise<project.MockRunResult>;
+
 export function ProjectOpen(arg1:project.OpenProjectCommand):Promise<project.OperationResult>;
 
 export function ProjectSave(arg1:project.SaveProjectCommand):Promise<project.OperationResult>;

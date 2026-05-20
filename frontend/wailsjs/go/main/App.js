@@ -62,6 +62,18 @@ export function ProjectMainReferenceSet(arg1) {
   return window['go']['main']['App']['ProjectMainReferenceSet'](arg1);
 }
 
+export function ProjectMockRunCancel(arg1) {
+  return window['go']['main']['App']['ProjectMockRunCancel'](arg1);
+}
+
+export function ProjectMockRunRetry(arg1) {
+  return window['go']['main']['App']['ProjectMockRunRetry'](arg1);
+}
+
+export function ProjectMockRunStart(arg1) {
+  return window['go']['main']['App']['ProjectMockRunStart'](arg1);
+}
+
 export function ProjectOpen(arg1) {
   return window['go']['main']['App']['ProjectOpen'](arg1);
 }

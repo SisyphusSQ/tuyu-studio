@@ -46,6 +46,7 @@ import {
   type ContinuityRuleSeverity,
   type GenerationPackageResultDTO,
   type GraphNodeDTO,
+  type MockRunResultDTO,
   type ProfileDTO,
   type ProjectCanvasDTO,
   type ProjectGraphLayoutSaveCommandDTO,
@@ -101,6 +102,7 @@ import {
   validateShotContext,
 } from './api/shotContext'
 import { exportGenerationPackage } from './api/packageExport'
+import { cancelMockRun, retryMockRun, startMockRun } from './api/mockRun'
 import { runProjectGraphView, runProjectOperation, runWorkbenchProbe, saveProjectGraphLayout } from './api/workbench'
 import GraphCanvas from './components/GraphCanvas.vue'
 import {
@@ -212,6 +214,8 @@ const shotDirtyReason = ref('manual revision')
 const generationPackageResult = ref<GenerationPackageResultDTO>()
 const packageAction = ref('')
 const packageShotId = ref('shot_002')
+const mockRunResult = ref<MockRunResultDTO>()
+const mockRunAction = ref('')
 
 const railItems = [
   { key: 'assets', icon: () => h(DatabaseOutlined), label: 'Assets' },
@@ -228,7 +232,12 @@ const queueItems = computed(() => [
       generationPackageResult.value?.error?.code ||
       'idle',
   },
-  { label: 'Mock run', value: 'not configured' },
+  {
+    label: 'Mock run',
+    value: mockRunResult.value?.run?.status ||
+      mockRunResult.value?.error?.code ||
+      'idle',
+  },
   { label: 'Review import', value: 'waiting for TOO-180' },
 ])
 
@@ -320,6 +329,7 @@ const auditHealthItems = computed(() => [
   ...(bindingResult.value?.health?.items || []),
   ...(continuityResult.value?.health?.items || []),
   ...(generationPackageResult.value?.health?.items || []),
+  ...(mockRunResult.value?.health?.items || []),
 ])
 const graphTheme = computed<CanvasTheme>(() => themeMode.value === 'warm' ? 'warm_light' : 'dark')
 const selectedGraphNodeIDs = computed(() => selectedGraphNodes.value.length > 0
@@ -342,6 +352,7 @@ const visibleErrors = computed(() => [
   sceneResult.value?.error,
   shotContextResult.value?.error,
   generationPackageResult.value?.error,
+  mockRunResult.value?.error,
   probeError.value,
   ...graphErrors.value,
 ].filter((error): error is AppErrorDTO => Boolean(error)))
@@ -352,6 +363,7 @@ const healthStatus = computed(() => highestHealthStatus([
   bindingResult.value?.health,
   continuityResult.value?.health,
   generationPackageResult.value?.health,
+  mockRunResult.value?.health,
 ], visibleErrors.value))
 const healthStatusTone = computed(() => healthTone(healthStatus.value))
 const errorSummary = computed(() => firstErrorSummary([
@@ -371,6 +383,10 @@ const latestEventLabel = computed(() => latestEventSummary(
   ],
   runtimeEvents.value,
 ))
+const runtimeProgress = computed(() => {
+  const last = runtimeEvents.value[runtimeEvents.value.length - 1]
+  return last?.progress ?? 0
+})
 const selectedSummary = computed(() => selectionLabel(selectedGraphNodes.value, selectedGraphNode.value))
 const inspectorSummary = computed(() => {
   if (!selectedGraphNode.value) {
@@ -453,6 +469,35 @@ const shotContextIssueRows = computed(() => [
 ])
 const shotContextReferenceRows = computed(() => shotContextReport.value?.references || [])
 const activePackageShotID = computed(() => packageShotId.value.trim() || shotContextId.value.trim() || selectedShotID.value)
+const activeMockShotID = computed(() => activePackageShotID.value || selectedShotID.value)
+const activeMockPackageID = computed(() => generationPackageResult.value?.package?.packageId || '')
+const mockRunStatusType = computed(() => {
+  if (!mockRunResult.value) {
+    return 'info'
+  }
+  if (mockRunResult.value.error?.severity === 'blocking' || mockRunResult.value.error?.severity === 'error') {
+    return 'error'
+  }
+  if (mockRunResult.value.error || mockRunResult.value.run?.status === 'failed' || mockRunResult.value.run?.status === 'cancelled') {
+    return 'warning'
+  }
+  return mockRunResult.value.run?.status === 'completed' ? 'success' : 'info'
+})
+const mockRunSummary = computed(() => {
+  const run = mockRunResult.value?.run
+  if (!run) {
+    return mockRunResult.value?.error?.userMessage || 'No mock run started'
+  }
+  return `${run.runId} · ${run.providerMode} · attempt ${run.attempt}`
+})
+const mockRunOutputLabel = computed(() => {
+  const output = mockRunResult.value?.run?.output
+  if (!output) {
+    return 'No placeholder output'
+  }
+  return `${output.relativePath} · ${output.digest.slice(0, 16)}`
+})
+const mockRunRecoveryActions = computed(() => mockRunResult.value?.error?.recoveryActions || [])
 const packageStatusType = computed(() => {
   if (!generationPackageResult.value) {
     return 'info'
@@ -938,6 +983,68 @@ async function exportCurrentGenerationPackage() {
   packageAction.value = ''
 }
 
+async function startCurrentMockRun() {
+  const shotId = activeMockShotID.value
+  const packageId = activeMockPackageID.value
+  if (!shotId && !packageId && selectedGraphNodeIDs.value.length === 0) {
+    return
+  }
+  mockRunAction.value = 'start'
+  mockRunResult.value = await startMockRun({
+    shotId,
+    packageId,
+    selectionIds: selectedGraphNodeIDs.value,
+  })
+  runtimeEvents.value = mockRunResult.value.events
+  if (mockRunResult.value.ok) {
+    await loadProjectGraph()
+  }
+  activeInspectorTab.value = 'runs'
+  mockRunAction.value = ''
+}
+
+async function cancelCurrentMockRun() {
+  const run = mockRunResult.value?.run
+  const shotId = activeMockShotID.value || run?.shotId
+  if (!run?.runId && !shotId) {
+    return
+  }
+  mockRunAction.value = 'cancel'
+  mockRunResult.value = await cancelMockRun({
+    runId: run?.runId,
+    shotId,
+    packageId: run?.packageId || activeMockPackageID.value,
+    selectionIds: selectedGraphNodeIDs.value.length ? selectedGraphNodeIDs.value : run?.selectionIds,
+    cancelReason: 'user_cancelled',
+  })
+  runtimeEvents.value = mockRunResult.value.events
+  if (mockRunResult.value.ok) {
+    await loadProjectGraph()
+  }
+  activeInspectorTab.value = 'runs'
+  mockRunAction.value = ''
+}
+
+async function retryCurrentMockRun() {
+  const run = mockRunResult.value?.run
+  if (!run?.runId) {
+    return
+  }
+  mockRunAction.value = 'retry'
+  mockRunResult.value = await retryMockRun({
+    runId: run.runId,
+    shotId: run.shotId || activeMockShotID.value,
+    packageId: run.packageId || activeMockPackageID.value,
+    selectionIds: run.selectionIds,
+  })
+  runtimeEvents.value = mockRunResult.value.events
+  if (mockRunResult.value.ok) {
+    await loadProjectGraph()
+  }
+  activeInspectorTab.value = 'runs'
+  mockRunAction.value = ''
+}
+
 function ingestSceneCandidateResult(result: ScriptSceneCandidateResultDTO) {
   if (result.document) {
     hydrateScriptForm(result.document)
@@ -1103,6 +1210,20 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
                 <CloudUploadOutlined />
               </template>
               Export
+            </Button>
+          </Tooltip>
+          <Tooltip title="Run deterministic mock task">
+            <Button
+              size="small"
+              aria-label="Run deterministic mock task"
+              :loading="mockRunAction === 'start'"
+              :disabled="!activeMockShotID && !activeMockPackageID && selectedGraphNodeIDs.length === 0"
+              @click="startCurrentMockRun"
+            >
+              <template #icon>
+                <ThunderboltOutlined />
+              </template>
+              Mock
             </Button>
           </Tooltip>
           <Tooltip title="Open project settings">
@@ -2099,6 +2220,94 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
                   </List>
                 </section>
 
+                <section class="service-panel" aria-label="Mock run">
+                  <div class="shot-context-header">
+                    <strong>Mock run</strong>
+                    <Tag v-if="mockRunResult" :color="mockRunStatusType">
+                      {{ mockRunResult.run?.status || mockRunResult.error?.code }}
+                    </Tag>
+                  </div>
+                  <div class="service-actions">
+                    <Button
+                      size="small"
+                      type="primary"
+                      :loading="mockRunAction === 'start'"
+                      :disabled="!activeMockShotID && !activeMockPackageID && selectedGraphNodeIDs.length === 0"
+                      @click="startCurrentMockRun"
+                    >
+                      <template #icon>
+                        <ThunderboltOutlined />
+                      </template>
+                      Start mock
+                    </Button>
+                    <Button
+                      size="small"
+                      :loading="mockRunAction === 'cancel'"
+                      :disabled="!mockRunResult?.run && !activeMockShotID"
+                      @click="cancelCurrentMockRun"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="small"
+                      :loading="mockRunAction === 'retry'"
+                      :disabled="!mockRunResult?.run?.runId"
+                      @click="retryCurrentMockRun"
+                    >
+                      <template #icon>
+                        <ReloadOutlined />
+                      </template>
+                      Retry
+                    </Button>
+                  </div>
+                  <Alert
+                    v-if="mockRunResult"
+                    class="service-alert"
+                    :type="mockRunStatusType"
+                    show-icon
+                    :message="mockRunSummary"
+                    :description="mockRunResult.run ? mockRunOutputLabel : `${mockRunResult.error?.code} · ${mockRunResult.error?.correlationId}`"
+                  />
+                  <dl v-if="mockRunResult?.run" class="property-grid">
+                    <div>
+                      <dt>Mode</dt>
+                      <dd>{{ mockRunResult.run.providerMode }}</dd>
+                    </div>
+                    <div>
+                      <dt>Target</dt>
+                      <dd>{{ mockRunResult.run.packageId || mockRunResult.run.shotId || mockRunResult.run.selectionIds.join(', ') }}</dd>
+                    </div>
+                    <div>
+                      <dt>Run</dt>
+                      <dd :title="mockRunResult.run.runPath">{{ mockRunResult.run.runPath }}</dd>
+                    </div>
+                    <div>
+                      <dt>Events</dt>
+                      <dd :title="mockRunResult.run.eventsPath">{{ mockRunResult.run.eventsPath }}</dd>
+                    </div>
+                    <div>
+                      <dt>Digest</dt>
+                      <dd :title="mockRunResult.run.contextDigest">{{ mockRunResult.run.contextDigest.slice(0, 16) }}</dd>
+                    </div>
+                    <div v-if="mockRunResult.run.output">
+                      <dt>Output</dt>
+                      <dd :title="mockRunResult.run.output.relativePath">{{ mockRunResult.run.output.relativePath }}</dd>
+                    </div>
+                  </dl>
+                  <List
+                    v-if="mockRunRecoveryActions.length"
+                    class="recovery-list"
+                    size="small"
+                    :data-source="mockRunRecoveryActions"
+                  >
+                    <template #renderItem="{ item }">
+                      <ListItem>
+                        <span>{{ item }}</span>
+                      </ListItem>
+                    </template>
+                  </List>
+                </section>
+
                 <section class="service-panel" aria-label="Go service probe">
                   <div class="service-actions">
                     <Button
@@ -2245,6 +2454,32 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
 
             <TabPane key="runs" tab="Runs">
               <div class="inspector-tab-body">
+                <Alert
+                  v-if="mockRunResult?.run"
+                  class="service-alert"
+                  :type="mockRunStatusType"
+                  show-icon
+                  :message="mockRunSummary"
+                  :description="mockRunOutputLabel"
+                />
+                <dl v-if="mockRunResult?.run" class="property-grid">
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{{ mockRunResult.run.status }}</dd>
+                  </div>
+                  <div>
+                    <dt>Attempt</dt>
+                    <dd>{{ mockRunResult.run.attempt }}</dd>
+                  </div>
+                  <div>
+                    <dt>Run record</dt>
+                    <dd :title="mockRunResult.run.runPath">{{ mockRunResult.run.runPath }}</dd>
+                  </div>
+                  <div v-if="mockRunResult.run.output">
+                    <dt>Output digest</dt>
+                    <dd :title="mockRunResult.run.output.digest">{{ mockRunResult.run.output.digest.slice(0, 16) }}</dd>
+                  </div>
+                </dl>
                 <List v-if="runtimeEvents.length" class="event-list" size="small" :data-source="runtimeEvents">
                   <template #renderItem="{ item }">
                     <ListItem>
@@ -2381,7 +2616,7 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
           </span>
           <span>Graph events {{ graphResult?.events.length || 0 }}</span>
           <span :title="latestEventLabel">{{ latestEventLabel }}</span>
-          <Progress class="queue-progress" :percent="runtimeEvents[0]?.progress ?? 0" size="small" />
+          <Progress class="queue-progress" :percent="runtimeProgress" size="small" />
         </div>
         <Button size="small" :disabled="graphLoading" @click="loadProjectGraph()">
           <template #icon>

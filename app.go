@@ -137,3 +137,15 @@ func (a *App) ProjectShotContextMarkDirty(command project.MarkShotContextDirtyCo
 func (a *App) ProjectGenerationPackageExport(command project.ExportGenerationPackageCommand) project.GenerationPackageResult {
 	return a.service.ProjectGenerationPackageExport(command)
 }
+
+func (a *App) ProjectMockRunStart(command project.MockRunCommand) project.MockRunResult {
+	return a.service.ProjectMockRunStart(command)
+}
+
+func (a *App) ProjectMockRunCancel(command project.MockRunCommand) project.MockRunResult {
+	return a.service.ProjectMockRunCancel(command)
+}
+
+func (a *App) ProjectMockRunRetry(command project.MockRunCommand) project.MockRunResult {
+	return a.service.ProjectMockRunRetry(command)
+}
