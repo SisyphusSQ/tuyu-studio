@@ -1,0 +1,91 @@
+{
+  "canvas": [
+    "edges",
+    "frames",
+    "grid",
+    "id",
+    "nodes",
+    "projectId",
+    "referenceGroups",
+    "schemaVersion",
+    "selectedNodeIds",
+    "theme",
+    "updatedAt",
+    "version",
+    "viewport"
+  ],
+  "edge": [
+    "createdAt",
+    "error",
+    "id",
+    "label",
+    "relation",
+    "sourceNodeId",
+    "targetNodeId",
+    "validity"
+  ],
+  "frame": [
+    "historySummary",
+    "id",
+    "layout",
+    "outputNodeIds",
+    "referenceGroupIds",
+    "requiredCapabilities",
+    "taskIntent",
+    "title"
+  ],
+  "grid": [
+    "opacity",
+    "size",
+    "visible"
+  ],
+  "history": [
+    "currentRunId",
+    "favoriteRunIds",
+    "latestSuccessfulRunId"
+  ],
+  "layout": [
+    "collapsed",
+    "height",
+    "width",
+    "x",
+    "y"
+  ],
+  "node": [
+    "badges",
+    "category",
+    "collapsed",
+    "data",
+    "id",
+    "kind",
+    "position",
+    "refId",
+    "size",
+    "source",
+    "sourceEventId",
+    "status",
+    "title"
+  ],
+  "position": [
+    "x",
+    "y"
+  ],
+  "referenceGroup": [
+    "id",
+    "inputNodeIds",
+    "layout",
+    "notes",
+    "priority",
+    "role",
+    "title"
+  ],
+  "size": [
+    "height",
+    "width"
+  ],
+  "viewport": [
+    "x",
+    "y",
+    "zoom"
+  ]
+}

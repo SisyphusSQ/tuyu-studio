@@ -49,3 +49,7 @@ func (a *App) ProjectSave(command project.SaveProjectCommand) project.OperationR
 func (a *App) ProjectHealth(command project.CheckProjectHealthCommand) project.OperationResult {
 	return a.service.ProjectHealth(command)
 }
+
+func (a *App) ProjectGraphView(command project.GraphViewCommand) project.GraphViewResult {
+	return a.service.ProjectGraphView(command)
+}
