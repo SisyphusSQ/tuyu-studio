@@ -30,6 +30,8 @@ describe('Workbench feedback model', () => {
   it.each([
     ['missing_ref', 'Missing ref', 'error'],
     ['missing_asset', 'Missing asset', 'error'],
+    ['missing_context', 'Missing context', 'error'],
+    ['blocked', 'Blocked', 'error'],
     ['context_dirty', 'Context dirty', 'warning'],
     ['context_ready', 'Context ready', 'success'],
     ['package_ready', 'Package ready', 'success'],

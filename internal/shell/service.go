@@ -192,6 +192,21 @@ func (s *Service) ProjectShotCandidateReject(command project.RejectShotCandidate
 	return s.projectStore.RejectShotCandidate(command)
 }
 
+func (s *Service) ProjectShotContextValidate(command project.ValidateShotContextCommand) project.ShotContextResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.ValidateShotContext(command)
+}
+
+func (s *Service) ProjectShotContextPromote(command project.PromoteShotContextCommand) project.ShotContextResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.PromoteShotContext(command)
+}
+
+func (s *Service) ProjectShotContextMarkDirty(command project.MarkShotContextDirtyCommand) project.ShotContextResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.MarkShotContextDirty(command)
+}
+
 func (s *Service) WorkbenchProbe(command WorkbenchProbeCommand) WorkbenchProbeResult {
 	now := time.Now().UTC()
 	checkedAt := now.Format(time.RFC3339)

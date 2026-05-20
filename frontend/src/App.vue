@@ -46,6 +46,7 @@ import {
   type ScriptDocumentDTO,
   type ScriptDocumentResultDTO,
   type ShotCandidateDTO,
+  type ShotContextResultDTO,
   type WorkbenchProbeMode,
   type WorkbenchStatusDTO,
 } from './api/dto'
@@ -63,6 +64,11 @@ import {
   rejectShotCandidate,
   saveShotCandidate,
 } from './api/scriptSceneCandidates'
+import {
+  markShotContextDirty,
+  promoteShotContext,
+  validateShotContext,
+} from './api/shotContext'
 import { runProjectGraphView, runProjectOperation, runWorkbenchProbe, saveProjectGraphLayout } from './api/workbench'
 import GraphCanvas from './components/GraphCanvas.vue'
 import {
@@ -140,6 +146,10 @@ const candidateStartLine = ref(1)
 const candidateEndLine = ref(1)
 const candidateSaving = ref(false)
 const candidateAction = ref('')
+const shotContextResult = ref<ShotContextResultDTO>()
+const shotContextAction = ref('')
+const shotContextId = ref('shot_001')
+const shotDirtyReason = ref('manual revision')
 
 const railItems = [
   { key: 'assets', icon: () => h(DatabaseOutlined), label: 'Assets' },
@@ -179,6 +189,7 @@ const visibleErrors = computed(() => [
   projectResult.value?.error,
   scriptResult.value?.error,
   sceneResult.value?.error,
+  shotContextResult.value?.error,
   probeError.value,
   ...graphErrors.value,
 ].filter((error): error is AppErrorDTO => Boolean(error)))
@@ -196,6 +207,7 @@ const latestEventLabel = computed(() => latestEventSummary(
     ...(projectResult.value?.events || []),
     ...(scriptResult.value?.events || []),
     ...(sceneResult.value?.events || []),
+    ...(shotContextResult.value?.events || []),
   ],
   runtimeEvents.value,
 ))
@@ -249,6 +261,37 @@ const candidateSummary = computed(() => {
   const rejected = shotCandidates.value.filter((candidate) => candidate.status === 'rejected').length
   return `${shotCandidates.value.length} rows · ${accepted} accepted · ${rejected} rejected`
 })
+const selectedShotID = computed(() => shotIDFromNode(selectedGraphNode.value))
+const shotContextReport = computed(() => shotContextResult.value?.report)
+const shotContextStatusType = computed(() => {
+  if (!shotContextResult.value) {
+    return 'info'
+  }
+  if (shotContextResult.value.error || !shotContextResult.value.report.canEnterContextReady) {
+    return 'error'
+  }
+  return shotContextResult.value.shot?.status === 'context_ready' ? 'success' : 'warning'
+})
+const shotContextStatusLabel = computed(() => {
+  if (!shotContextResult.value) {
+    return 'idle'
+  }
+  if (shotContextResult.value.error || !shotContextResult.value.report.canEnterContextReady) {
+    return 'blocked'
+  }
+  if (shotContextResult.value.report.status === 'context_ready') {
+    return 'context_ready'
+  }
+  if (shotContextResult.value.report.status === 'context_dirty') {
+    return 'context_dirty'
+  }
+  return 'eligible'
+})
+const shotContextIssueRows = computed(() => [
+  ...(shotContextReport.value?.blocking || []),
+  ...(shotContextReport.value?.warnings || []),
+])
+const shotContextReferenceRows = computed(() => shotContextReport.value?.references || [])
 
 onMounted(() => {
   void loadProjectGraph()
@@ -274,6 +317,7 @@ async function runProjectAction(action: ProjectOperationName) {
 
 async function loadProjectGraph(expectedGraphVersion?: number) {
   graphLoading.value = true
+  const previousSelection = selectedGraphNode.value?.id
   graphResult.value = await runProjectGraphView(expectedGraphVersion)
   const canvas = graphResult.value.canvas
   if (canvas) {
@@ -281,6 +325,10 @@ async function loadProjectGraph(expectedGraphVersion?: number) {
     themeMode.value = canvas.theme === 'warm_light' ? 'warm' : 'dark'
     canvasGrid.value = canvas.grid
     graphViewportLabel.value = `${Math.round(canvas.viewport.zoom * 100)}%`
+    if (previousSelection) {
+      selectedGraphNode.value = canvas.nodes.find((node) => node.id === previousSelection)
+      selectedGraphNodes.value = selectedGraphNode.value ? [selectedGraphNode.value] : []
+    }
   } else {
     activeGraphCanvas.value = undefined
     selectedGraphNode.value = undefined
@@ -320,6 +368,13 @@ function saveCurrentCanvasLayout() {
 
 function updateCanvasViewport(viewport: { zoom: number }) {
   graphViewportLabel.value = `${Math.round(viewport.zoom * 100)}%`
+}
+
+function selectGraphNode(node: GraphNodeDTO | undefined) {
+  selectedGraphNode.value = node
+  if (node?.kind === 'shot') {
+    shotContextId.value = shotIDFromNode(node) || shotContextId.value
+  }
 }
 
 function toggleCanvasGrid() {
@@ -467,6 +522,48 @@ async function rejectCandidateRow(candidate: ShotCandidateDTO) {
   candidateAction.value = ''
 }
 
+async function checkShotContext() {
+  const shotId = shotContextId.value.trim() || selectedShotID.value
+  if (!shotId) {
+    return
+  }
+  shotContextAction.value = 'check'
+  shotContextResult.value = await validateShotContext({ shotId })
+  activeInspectorTab.value = 'tasks'
+  shotContextAction.value = ''
+}
+
+async function promoteCurrentShotContext() {
+  const shotId = shotContextId.value.trim() || selectedShotID.value
+  if (!shotId) {
+    return
+  }
+  shotContextAction.value = 'ready'
+  shotContextResult.value = await promoteShotContext({ shotId })
+  if (shotContextResult.value.ok) {
+    await loadProjectGraph()
+  }
+  activeInspectorTab.value = 'tasks'
+  shotContextAction.value = ''
+}
+
+async function markCurrentShotContextDirty() {
+  const shotId = shotContextId.value.trim() || selectedShotID.value
+  if (!shotId) {
+    return
+  }
+  shotContextAction.value = 'dirty'
+  shotContextResult.value = await markShotContextDirty({
+    shotId,
+    reason: shotDirtyReason.value,
+  })
+  if (shotContextResult.value.ok) {
+    await loadProjectGraph()
+  }
+  activeInspectorTab.value = 'tasks'
+  shotContextAction.value = ''
+}
+
 function ingestSceneCandidateResult(result: ScriptSceneCandidateResultDTO) {
   if (result.document) {
     hydrateScriptForm(result.document)
@@ -476,6 +573,12 @@ function ingestSceneCandidateResult(result: ScriptSceneCandidateResultDTO) {
 
 function splitList(value: string): string[] {
   return value.split(',').map((item) => item.trim()).filter(Boolean)
+}
+
+function shotIDFromNode(node: GraphNodeDTO | undefined): string {
+  const refId = node?.kind === 'shot' ? node.refId || '' : ''
+  const filename = refId.split('/').pop() || ''
+  return filename.replace(/\.json$/i, '')
 }
 </script>
 
@@ -891,7 +994,7 @@ function splitList(value: string): string[] {
               :loading="graphLoading"
               :saving="graphSaving"
               @save="saveCanvasLayout"
-              @select="(node) => (selectedGraphNode = node)"
+              @select="selectGraphNode"
               @selection="(nodes) => (selectedGraphNodes = nodes)"
               @viewport="updateCanvasViewport"
             />
@@ -1099,6 +1202,72 @@ function splitList(value: string): string[] {
                     </ListItem>
                   </template>
                 </List>
+
+                <section v-if="selectedGraphNode?.kind === 'shot' || shotContextResult || shotContextId" class="service-panel" aria-label="Shot context">
+                  <div class="shot-context-header">
+                    <strong>Shot context</strong>
+                    <Tag v-if="shotContextReport" :color="shotContextStatusType">
+                      {{ shotContextStatusLabel }}
+                    </Tag>
+                  </div>
+                  <label class="script-field">
+                    <span>Shot id</span>
+                    <input v-model="shotContextId" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <label class="script-field">
+                    <span>Dirty reason</span>
+                    <input v-model="shotDirtyReason" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <div class="service-actions">
+                    <Button size="small" :loading="shotContextAction === 'check'" @click="checkShotContext">
+                      Check context
+                    </Button>
+                    <Button size="small" type="primary" :loading="shotContextAction === 'ready'" @click="promoteCurrentShotContext">
+                      Context ready
+                    </Button>
+                    <Button size="small" :loading="shotContextAction === 'dirty'" @click="markCurrentShotContextDirty">
+                      Mark dirty
+                    </Button>
+                  </div>
+                  <Alert
+                    v-if="shotContextResult"
+                    class="service-alert"
+                    :type="shotContextStatusType"
+                    show-icon
+                    :message="shotContextResult.error?.userMessage || `${shotContextReport?.shotId || shotContextId} · ${shotContextReport?.status || 'checked'}`"
+                    :description="shotContextResult.error ? `${shotContextResult.error.code} · ${shotContextResult.error.correlationId}` : `${shotContextReport?.missingFields.length || 0} missing · ${shotContextReport?.blocking.length || 0} blocking`"
+                  />
+                  <div v-if="shotContextReport?.missingFields.length" class="capability-row">
+                    <Tag v-for="field in shotContextReport.missingFields" :key="field" color="error">
+                      {{ field }}
+                    </Tag>
+                  </div>
+                  <List
+                    v-if="shotContextIssueRows.length"
+                    class="recovery-list"
+                    size="small"
+                    :data-source="shotContextIssueRows"
+                  >
+                    <template #renderItem="{ item }">
+                      <ListItem>
+                        <span>{{ item.field || item.code }} · {{ item.userMessage }}</span>
+                      </ListItem>
+                    </template>
+                  </List>
+                  <List
+                    v-if="shotContextReferenceRows.length"
+                    class="recovery-list"
+                    size="small"
+                    :data-source="shotContextReferenceRows"
+                  >
+                    <template #renderItem="{ item }">
+                      <ListItem>
+                        <span>{{ item.kind }} · {{ item.referenceId }}</span>
+                        <Tag :color="item.status === 'resolved' ? 'success' : 'error'">{{ item.status }}</Tag>
+                      </ListItem>
+                    </template>
+                  </List>
+                </section>
 
                 <section class="service-panel" aria-label="Go service probe">
                   <div class="service-actions">

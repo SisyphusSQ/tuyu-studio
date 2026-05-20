@@ -85,3 +85,15 @@ func (a *App) ProjectShotCandidateConfirm(command project.ConfirmShotCandidateCo
 func (a *App) ProjectShotCandidateReject(command project.RejectShotCandidateCommand) project.ScriptSceneCandidateResult {
 	return a.service.ProjectShotCandidateReject(command)
 }
+
+func (a *App) ProjectShotContextValidate(command project.ValidateShotContextCommand) project.ShotContextResult {
+	return a.service.ProjectShotContextValidate(command)
+}
+
+func (a *App) ProjectShotContextPromote(command project.PromoteShotContextCommand) project.ShotContextResult {
+	return a.service.ProjectShotContextPromote(command)
+}
+
+func (a *App) ProjectShotContextMarkDirty(command project.MarkShotContextDirtyCommand) project.ShotContextResult {
+	return a.service.ProjectShotContextMarkDirty(command)
+}

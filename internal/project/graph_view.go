@@ -234,7 +234,7 @@ func (s *Store) projectGraphView(root string, manifest Manifest, health HealthRe
 			}
 			continue
 		}
-		dto, err := s.graphNodeDTO(root, node, index, nodeIssues[node.ID], correlationID)
+		dto, err := s.graphNodeDTO(root, manifest, node, index, nodeIssues[node.ID], correlationID)
 		if err != nil {
 			errors = append(errors, *err)
 		}
@@ -288,7 +288,7 @@ func (s *Store) projectGraphView(root string, manifest Manifest, health HealthRe
 	return graphProjection{canvas: canvas, errors: errors}
 }
 
-func (s *Store) graphNodeDTO(root string, node Node, index int, issues []HealthItem, correlationID string) (GraphNodeDTO, *OperationError) {
+func (s *Store) graphNodeDTO(root string, manifest Manifest, node Node, index int, issues []HealthItem, correlationID string) (GraphNodeDTO, *OperationError) {
 	kind, category, supported := graphNodeKindCategory(node.Kind)
 	refID := strings.TrimSpace(node.RefID)
 	filename, canReadRef := safeProjectFilePath(root, refID)
@@ -313,6 +313,13 @@ func (s *Store) graphNodeDTO(root string, node Node, index int, issues []HealthI
 	}
 
 	badges := statusBadges(kind, node.Status)
+	if kind == "shot" && canReadRef {
+		shotBadges, missingFields := s.shotProjectionBadges(root, manifest, filename)
+		badges = append(badges, shotBadges...)
+		if len(missingFields) > 0 {
+			summary.data["missingFields"] = strings.Join(missingFields, ", ")
+		}
+	}
 	for _, issue := range issues {
 		switch issue.Code {
 		case CodeGraphReferenceMissing, CodeProjectManifestMissing:
@@ -865,6 +872,38 @@ func statusBadges(kind string, status string) []string {
 	default:
 		return []string{}
 	}
+}
+
+func (s *Store) shotProjectionBadges(root string, manifest Manifest, filename string) ([]string, []string) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, nil
+	}
+	var shot ShotCardDTO
+	if err := json.Unmarshal(data, &shot); err != nil {
+		return []string{"blocked"}, nil
+	}
+	report := s.validateShotContext(root, manifest, shot)
+	if report.CanEnterContextReady {
+		return nil, nil
+	}
+	return []string{"missing_context", "blocked"}, shotContextBlockingFields(report)
+}
+
+func shotContextBlockingFields(report ShotContextReportDTO) []string {
+	values := append([]string{}, report.MissingFields...)
+	for _, issue := range report.Blocking {
+		values = append(values, issue.Field)
+	}
+	values = cleanStringList(values)
+	sort.Strings(values)
+	deduped := values[:0]
+	for _, value := range values {
+		if len(deduped) == 0 || deduped[len(deduped)-1] != value {
+			deduped = append(deduped, value)
+		}
+	}
+	return deduped
 }
 
 func positionForNode(category string, offset int) CanvasPositionDTO {

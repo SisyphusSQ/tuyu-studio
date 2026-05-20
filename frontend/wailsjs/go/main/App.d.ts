@@ -31,6 +31,12 @@ export function ProjectShotCandidateSave(arg1:project.SaveShotCandidateCommand):
 
 export function ProjectShotCandidatesList(arg1:project.ListShotCandidatesCommand):Promise<project.ScriptSceneCandidateResult>;
 
+export function ProjectShotContextMarkDirty(arg1:project.MarkShotContextDirtyCommand):Promise<project.ShotContextResult>;
+
+export function ProjectShotContextPromote(arg1:project.PromoteShotContextCommand):Promise<project.ShotContextResult>;
+
+export function ProjectShotContextValidate(arg1:project.ValidateShotContextCommand):Promise<project.ShotContextResult>;
+
 export function ShellHealth():Promise<shell.Health>;
 
 export function WorkbenchProbe(arg1:shell.WorkbenchProbeCommand):Promise<shell.WorkbenchProbeResult>;
