@@ -1,5 +1,85 @@
 export namespace project {
 
+	export class CanvasGridDTO {
+	    visible: boolean;
+	    size: number;
+	    opacity: number;
+
+	    static createFrom(source: any = {}) {
+	        return new CanvasGridDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.visible = source["visible"];
+	        this.size = source["size"];
+	        this.opacity = source["opacity"];
+	    }
+	}
+	export class CanvasLayoutDTO {
+	    x: number;
+	    y: number;
+	    width: number;
+	    height: number;
+	    collapsed: boolean;
+
+	    static createFrom(source: any = {}) {
+	        return new CanvasLayoutDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.width = source["width"];
+	        this.height = source["height"];
+	        this.collapsed = source["collapsed"];
+	    }
+	}
+	export class CanvasPositionDTO {
+	    x: number;
+	    y: number;
+
+	    static createFrom(source: any = {}) {
+	        return new CanvasPositionDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.x = source["x"];
+	        this.y = source["y"];
+	    }
+	}
+	export class CanvasSizeDTO {
+	    width: number;
+	    height: number;
+
+	    static createFrom(source: any = {}) {
+	        return new CanvasSizeDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.width = source["width"];
+	        this.height = source["height"];
+	    }
+	}
+	export class CanvasViewportDTO {
+	    x: number;
+	    y: number;
+	    zoom: number;
+
+	    static createFrom(source: any = {}) {
+	        return new CanvasViewportDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.x = source["x"];
+	        this.y = source["y"];
+	        this.zoom = source["zoom"];
+	    }
+	}
 	export class CheckProjectHealthCommand {
 	    root: string;
 	    correlationId: string;
@@ -33,6 +113,206 @@ export namespace project {
 	        this.type = source["type"];
 	        this.correlationId = source["correlationId"];
 	    }
+	}
+	export class FrameHistorySummaryDTO {
+	    currentRunId?: string;
+	    favoriteRunIds: string[];
+	    latestSuccessfulRunId?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new FrameHistorySummaryDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.currentRunId = source["currentRunId"];
+	        this.favoriteRunIds = source["favoriteRunIds"];
+	        this.latestSuccessfulRunId = source["latestSuccessfulRunId"];
+	    }
+	}
+	export class OperationError {
+	    code: string;
+	    severity: string;
+	    retryable: boolean;
+	    targetType?: string;
+	    targetId?: string;
+	    userMessage: string;
+	    technicalDetail?: string;
+	    recoveryActions: string[];
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new OperationError(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.code = source["code"];
+	        this.severity = source["severity"];
+	        this.retryable = source["retryable"];
+	        this.targetType = source["targetType"];
+	        this.targetId = source["targetId"];
+	        this.userMessage = source["userMessage"];
+	        this.technicalDetail = source["technicalDetail"];
+	        this.recoveryActions = source["recoveryActions"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
+	export class GraphEdgeDTO {
+	    id: string;
+	    sourceNodeId: string;
+	    targetNodeId: string;
+	    relation: string;
+	    label: string;
+	    createdAt: string;
+	    validity: string;
+	    error?: OperationError;
+
+	    static createFrom(source: any = {}) {
+	        return new GraphEdgeDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.sourceNodeId = source["sourceNodeId"];
+	        this.targetNodeId = source["targetNodeId"];
+	        this.relation = source["relation"];
+	        this.label = source["label"];
+	        this.createdAt = source["createdAt"];
+	        this.validity = source["validity"];
+	        this.error = this.convertValues(source["error"], OperationError);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class GraphNodeDTO {
+	    id: string;
+	    kind: string;
+	    category: string;
+	    title: string;
+	    refId?: string;
+	    position: CanvasPositionDTO;
+	    size: CanvasSizeDTO;
+	    collapsed: boolean;
+	    status?: string;
+	    badges: string[];
+	    source: string;
+	    sourceEventId?: string;
+	    data?: Record<string, string>;
+
+	    static createFrom(source: any = {}) {
+	        return new GraphNodeDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.kind = source["kind"];
+	        this.category = source["category"];
+	        this.title = source["title"];
+	        this.refId = source["refId"];
+	        this.position = this.convertValues(source["position"], CanvasPositionDTO);
+	        this.size = this.convertValues(source["size"], CanvasSizeDTO);
+	        this.collapsed = source["collapsed"];
+	        this.status = source["status"];
+	        this.badges = source["badges"];
+	        this.source = source["source"];
+	        this.sourceEventId = source["sourceEventId"];
+	        this.data = source["data"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class GraphViewCommand {
+	    root: string;
+	    expectedGraphVersion?: number;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new GraphViewCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.expectedGraphVersion = source["expectedGraphVersion"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
+	export class ProjectEvent {
+	    eventId: string;
+	    eventType: string;
+	    state: string;
+	    summary: string;
+	    error?: OperationError;
+	    nextActions: string[];
+	    createdAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ProjectEvent(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.eventId = source["eventId"];
+	        this.eventType = source["eventType"];
+	        this.state = source["state"];
+	        this.summary = source["summary"];
+	        this.error = this.convertValues(source["error"], OperationError);
+	        this.nextActions = source["nextActions"];
+	        this.createdAt = source["createdAt"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class HealthItem {
 	    severity: string;
@@ -92,72 +372,28 @@ export namespace project {
 		    return a;
 		}
 	}
-	export class OpenProjectCommand {
-	    root: string;
-	    takeover: boolean;
-	    correlationId: string;
+	export class ReferenceGroupDTO {
+	    id: string;
+	    title: string;
+	    role: string;
+	    inputNodeIds: string[];
+	    priority: number;
+	    notes?: string;
+	    layout: CanvasLayoutDTO;
 
 	    static createFrom(source: any = {}) {
-	        return new OpenProjectCommand(source);
+	        return new ReferenceGroupDTO(source);
 	    }
 
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.root = source["root"];
-	        this.takeover = source["takeover"];
-	        this.correlationId = source["correlationId"];
-	    }
-	}
-	export class OperationError {
-	    code: string;
-	    severity: string;
-	    retryable: boolean;
-	    targetType?: string;
-	    targetId?: string;
-	    userMessage: string;
-	    technicalDetail?: string;
-	    recoveryActions: string[];
-	    correlationId: string;
-
-	    static createFrom(source: any = {}) {
-	        return new OperationError(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.code = source["code"];
-	        this.severity = source["severity"];
-	        this.retryable = source["retryable"];
-	        this.targetType = source["targetType"];
-	        this.targetId = source["targetId"];
-	        this.userMessage = source["userMessage"];
-	        this.technicalDetail = source["technicalDetail"];
-	        this.recoveryActions = source["recoveryActions"];
-	        this.correlationId = source["correlationId"];
-	    }
-	}
-	export class ProjectEvent {
-	    eventId: string;
-	    eventType: string;
-	    state: string;
-	    summary: string;
-	    error?: OperationError;
-	    nextActions: string[];
-	    createdAt: string;
-
-	    static createFrom(source: any = {}) {
-	        return new ProjectEvent(source);
-	    }
-
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.eventId = source["eventId"];
-	        this.eventType = source["eventType"];
-	        this.state = source["state"];
-	        this.summary = source["summary"];
-	        this.error = this.convertValues(source["error"], OperationError);
-	        this.nextActions = source["nextActions"];
-	        this.createdAt = source["createdAt"];
+	        this.id = source["id"];
+	        this.title = source["title"];
+	        this.role = source["role"];
+	        this.inputNodeIds = source["inputNodeIds"];
+	        this.priority = source["priority"];
+	        this.notes = source["notes"];
+	        this.layout = this.convertValues(source["layout"], CanvasLayoutDTO);
 	    }
 
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -178,6 +414,163 @@ export namespace project {
 		    return a;
 		}
 	}
+	export class ProductionFrameDTO {
+	    id: string;
+	    title: string;
+	    referenceGroupIds: string[];
+	    outputNodeIds: string[];
+	    taskIntent: string;
+	    requiredCapabilities: string[];
+	    historySummary: FrameHistorySummaryDTO;
+	    layout: CanvasLayoutDTO;
+
+	    static createFrom(source: any = {}) {
+	        return new ProductionFrameDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.title = source["title"];
+	        this.referenceGroupIds = source["referenceGroupIds"];
+	        this.outputNodeIds = source["outputNodeIds"];
+	        this.taskIntent = source["taskIntent"];
+	        this.requiredCapabilities = source["requiredCapabilities"];
+	        this.historySummary = this.convertValues(source["historySummary"], FrameHistorySummaryDTO);
+	        this.layout = this.convertValues(source["layout"], CanvasLayoutDTO);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class ProjectCanvasDTO {
+	    id: string;
+	    projectId: string;
+	    schemaVersion: string;
+	    version: number;
+	    viewport: CanvasViewportDTO;
+	    theme: string;
+	    grid: CanvasGridDTO;
+	    nodes: GraphNodeDTO[];
+	    edges: GraphEdgeDTO[];
+	    frames: ProductionFrameDTO[];
+	    referenceGroups: ReferenceGroupDTO[];
+	    selectedNodeIds: string[];
+	    updatedAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ProjectCanvasDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.projectId = source["projectId"];
+	        this.schemaVersion = source["schemaVersion"];
+	        this.version = source["version"];
+	        this.viewport = this.convertValues(source["viewport"], CanvasViewportDTO);
+	        this.theme = source["theme"];
+	        this.grid = this.convertValues(source["grid"], CanvasGridDTO);
+	        this.nodes = this.convertValues(source["nodes"], GraphNodeDTO);
+	        this.edges = this.convertValues(source["edges"], GraphEdgeDTO);
+	        this.frames = this.convertValues(source["frames"], ProductionFrameDTO);
+	        this.referenceGroups = this.convertValues(source["referenceGroups"], ReferenceGroupDTO);
+	        this.selectedNodeIds = source["selectedNodeIds"];
+	        this.updatedAt = source["updatedAt"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	export class GraphViewResult {
+	    ok: boolean;
+	    canvas?: ProjectCanvasDTO;
+	    health?: HealthReport;
+	    error?: OperationError;
+	    errors: OperationError[];
+	    events: ProjectEvent[];
+
+	    static createFrom(source: any = {}) {
+	        return new GraphViewResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.canvas = this.convertValues(source["canvas"], ProjectCanvasDTO);
+	        this.health = this.convertValues(source["health"], HealthReport);
+	        this.error = this.convertValues(source["error"], OperationError);
+	        this.errors = this.convertValues(source["errors"], OperationError);
+	        this.events = this.convertValues(source["events"], ProjectEvent);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+
+	export class OpenProjectCommand {
+	    root: string;
+	    takeover: boolean;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new OpenProjectCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.takeover = source["takeover"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
+
 	export class ProjectSummary {
 	    projectId: string;
 	    name: string;
@@ -248,6 +641,9 @@ export namespace project {
 		    return a;
 		}
 	}
+
+
+
 
 
 	export class SaveProjectCommand {

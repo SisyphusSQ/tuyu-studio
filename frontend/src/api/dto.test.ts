@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  normalizeProjectGraphViewResult,
   normalizeProbeResult,
   normalizeProjectOperationResult,
   normalizeUnknownError,
+  type ProjectGraphViewResultDTO,
   type ProjectOperationResultDTO,
   type WorkbenchProbeResultDTO,
 } from './dto'
@@ -75,5 +77,67 @@ describe('AppErrorDTO normalization', () => {
     expect(normalized.health?.status).toBe('warning')
     expect(normalized.health?.items[0].code).toBe('project_stale_lock')
     expect(normalized.events[0].eventType).toBe('project.health_checked')
+  })
+
+  it('normalizes graph view DTO collections and relation errors', () => {
+    const result: ProjectGraphViewResultDTO = {
+      ok: true,
+      canvas: {
+        id: 'proj_alpha_fixture_canvas',
+        projectId: 'proj_alpha_fixture',
+        schemaVersion: '1.0.0',
+        version: 3,
+        viewport: { x: 0, y: 0, zoom: 1 },
+        theme: 'dark',
+        grid: { visible: true, size: 24, opacity: 0.24 },
+        nodes: [
+          {
+            id: 'node_shot_001',
+            kind: 'shot',
+            category: 'production',
+            title: 'Shot 001',
+            refId: 'shots/shot-001.json',
+            position: { x: 620, y: 96 },
+            size: { width: 240, height: 112 },
+            collapsed: false,
+            status: 'context_ready',
+            badges: ['context_ready'],
+            source: 'human',
+          },
+        ],
+        edges: [
+          {
+            id: 'edge_invalid',
+            sourceNodeId: 'node_shot_001',
+            targetNodeId: 'node_missing',
+            relation: 'uses',
+            label: 'uses',
+            createdAt: '2026-05-20T05:40:00Z',
+            validity: 'missing_endpoint',
+            error: {
+              code: 'graph_view_missing_endpoint',
+              severity: 'warning',
+              retryable: true,
+              userMessage: 'Missing endpoint',
+              recoveryActions: ['Restore node'],
+              correlationId: 'service-correlation',
+            },
+          },
+        ],
+        frames: [],
+        referenceGroups: [],
+        selectedNodeIds: [],
+        updatedAt: '2026-05-20T05:40:00Z',
+      },
+      errors: [],
+      events: [],
+    }
+
+    const normalized = normalizeProjectGraphViewResult(result, 'graph-correlation')
+
+    expect(normalized.ok).toBe(true)
+    expect(normalized.canvas?.nodes[0].badges).toEqual(['context_ready'])
+    expect(normalized.canvas?.edges[0].validity).toBe('missing_endpoint')
+    expect(normalized.canvas?.edges[0].error?.code).toBe('graph_view_missing_endpoint')
   })
 })

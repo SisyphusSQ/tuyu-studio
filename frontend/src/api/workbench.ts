@@ -1,11 +1,13 @@
-import { ProjectCreate, ProjectHealth, ProjectOpen, ProjectSave, WorkbenchProbe } from '../../wailsjs/go/main/App'
+import { ProjectCreate, ProjectGraphView, ProjectHealth, ProjectOpen, ProjectSave, WorkbenchProbe } from '../../wailsjs/go/main/App'
 import { project } from '../../wailsjs/go/models'
 
 import {
   createCorrelationId,
+  normalizeProjectGraphViewResult,
   normalizeProjectOperationResult,
   normalizeProbeResult,
   normalizeUnknownError,
+  type ProjectGraphViewResultDTO,
   type ProjectOperationName,
   type ProjectOperationResultDTO,
   type WorkbenchProbeMode,
@@ -61,6 +63,39 @@ export async function runProjectOperation(action: ProjectOperationName): Promise
         {
           eventId: `${correlationId}-transport-error`,
           eventType: `project.${action}`,
+          state: 'failed',
+          summary: appError.userMessage,
+          error: appError,
+          nextActions: appError.recoveryActions,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }
+  }
+}
+
+export async function runProjectGraphView(expectedGraphVersion?: number): Promise<ProjectGraphViewResultDTO> {
+  const correlationId = createCorrelationId('project-graph-view')
+
+  try {
+    const result = await ProjectGraphView(project.GraphViewCommand.createFrom({
+      root: '',
+      expectedGraphVersion,
+      correlationId,
+    }))
+
+    return normalizeProjectGraphViewResult(result as Partial<ProjectGraphViewResultDTO>, correlationId)
+  } catch (error) {
+    const appError = normalizeUnknownError(error, correlationId)
+
+    return {
+      ok: false,
+      error: appError,
+      errors: [appError],
+      events: [
+        {
+          eventId: `${correlationId}-transport-error`,
+          eventType: 'project.graph_view',
           state: 'failed',
           summary: appError.userMessage,
           error: appError,
