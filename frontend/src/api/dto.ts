@@ -10,6 +10,7 @@ export type AssetDuplicatePolicy = 'cancel' | 'reuse' | 'copy'
 export type AssetThumbnailStatus = 'placeholder' | 'thumbnail_failed' | 'none' | string
 export type AssetBindingTargetType = 'character' | 'scene' | 'prop'
 export type AssetBindingDuplicatePolicy = 'cancel' | 'reuse'
+export type ContinuityRuleSeverity = 'blocking' | 'warning' | 'suggestion'
 
 export interface AppErrorDTO {
   code: string
@@ -196,9 +197,42 @@ export interface ProfileDTO {
   mainReferencePath?: string
   mainReferenceThumbnailPath?: string
   lockedRules: string[]
+  continuityRules: ContinuityRuleDTO[]
   bindings: AssetBindingDTO[]
   bindingCount: number
   missingMainReference: boolean
+}
+
+export interface ContinuityRuleDTO {
+  id: string
+  targetType: AssetBindingTargetType | string
+  targetId: string
+  rule: string
+  severity: ContinuityRuleSeverity | string
+  locked: boolean
+  createdBy: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export interface ContinuityImpactIssueDTO {
+  code: string
+  severity: ErrorSeverity
+  targetType?: string
+  targetId?: string
+  userMessage: string
+  recoveryActions: string[]
+}
+
+export interface ContinuityImpactReportDTO {
+  affectedAssets: string[]
+  affectedBindings: string[]
+  affectedProfiles: string[]
+  affectedShots: string[]
+  affectedPackages: string[]
+  issues: ContinuityImpactIssueDTO[]
+  recoveryActions: string[]
+  checkedAt: string
 }
 
 export interface BindingTargetSummaryDTO {
@@ -252,6 +286,51 @@ export interface ContinuityLibraryResultDTO {
   profiles: ProfileDTO[]
   lineage: AssetLineageDTO[]
   duplicate?: AssetBindingDTO
+  health?: HealthReportDTO
+  error?: AppErrorDTO
+  events: ProjectEventDTO[]
+}
+
+export interface ListContinuityCommandDTO {
+  root: string
+  correlationId: string
+}
+
+export interface SaveContinuityRuleCommandDTO {
+  root: string
+  id?: string
+  targetType: AssetBindingTargetType
+  targetId: string
+  rule: string
+  severity?: ContinuityRuleSeverity
+  locked: boolean
+  createdBy?: string
+  correlationId: string
+}
+
+export interface UnlockContinuityRuleCommandDTO {
+  root: string
+  ruleId: string
+  reason: string
+  correlationId: string
+}
+
+export interface UnlockAssetBindingCommandDTO {
+  root: string
+  bindingId?: string
+  assetId?: string
+  targetType?: AssetBindingTargetType
+  targetId?: string
+  purpose?: string
+  reason: string
+  correlationId: string
+}
+
+export interface ContinuityResultDTO {
+  ok: boolean
+  rule?: ContinuityRuleDTO
+  rules: ContinuityRuleDTO[]
+  impact?: ContinuityImpactReportDTO
   health?: HealthReportDTO
   error?: AppErrorDTO
   events: ProjectEventDTO[]
@@ -832,6 +911,44 @@ export function normalizeContinuityLibraryResult(
   }
 }
 
+export function normalizeContinuityResult(
+  result: Partial<ContinuityResultDTO> | null | undefined,
+  correlationId: string,
+): ContinuityResultDTO {
+  if (!result) {
+    return {
+      ok: false,
+      rules: [],
+      error: normalizeUnknownError(new Error('empty continuity response'), correlationId),
+      events: [],
+    }
+  }
+
+  const events = Array.isArray(result.events)
+    ? result.events.map((event) => ({
+      ...event,
+      error: event.error ? normalizeAppError(event.error, correlationId) : undefined,
+      nextActions: Array.isArray(event.nextActions) ? event.nextActions : [],
+    }))
+    : []
+  const health = result.health
+    ? {
+      ...result.health,
+      items: Array.isArray(result.health.items) ? result.health.items : [],
+    }
+    : undefined
+
+  return {
+    ok: Boolean(result.ok),
+    rule: result.rule ? normalizeContinuityRule(result.rule) : undefined,
+    rules: Array.isArray(result.rules) ? result.rules.map(normalizeContinuityRule) : [],
+    impact: result.impact ? normalizeContinuityImpactReport(result.impact) : undefined,
+    health,
+    error: result.error ? normalizeAppError(result.error, correlationId) : undefined,
+    events,
+  }
+}
+
 export function normalizeScriptDocumentResult(
   result: Partial<ScriptDocumentResultDTO> | null | undefined,
   correlationId: string,
@@ -1010,6 +1127,9 @@ function normalizeAssetBinding(binding: Partial<AssetBindingDTO>): AssetBindingD
 function normalizeProfile(profile: Partial<ProfileDTO>): ProfileDTO {
   const bindings = Array.isArray(profile.bindings) ? profile.bindings.map(normalizeAssetBinding) : []
   const referenceAssetIds = Array.isArray(profile.referenceAssetIds) ? profile.referenceAssetIds : []
+  const continuityRules = Array.isArray(profile.continuityRules)
+    ? profile.continuityRules.map(normalizeContinuityRule)
+    : []
 
   return {
     id: profile.id || '',
@@ -1032,9 +1152,48 @@ function normalizeProfile(profile: Partial<ProfileDTO>): ProfileDTO {
     mainReferencePath: profile.mainReferencePath,
     mainReferenceThumbnailPath: profile.mainReferenceThumbnailPath,
     lockedRules: Array.isArray(profile.lockedRules) ? profile.lockedRules : [],
+    continuityRules,
     bindings,
     bindingCount: Number(profile.bindingCount || bindings.length || 0),
     missingMainReference: Boolean(profile.missingMainReference),
+  }
+}
+
+function normalizeContinuityRule(rule: Partial<ContinuityRuleDTO>): ContinuityRuleDTO {
+  return {
+    id: rule.id || '',
+    targetType: rule.targetType || 'character',
+    targetId: rule.targetId || '',
+    rule: rule.rule || '',
+    severity: rule.severity || 'blocking',
+    locked: Boolean(rule.locked),
+    createdBy: rule.createdBy || 'user',
+    createdAt: rule.createdAt,
+    updatedAt: rule.updatedAt,
+  }
+}
+
+function normalizeContinuityImpactReport(
+  report: Partial<ContinuityImpactReportDTO>,
+): ContinuityImpactReportDTO {
+  return {
+    affectedAssets: Array.isArray(report.affectedAssets) ? report.affectedAssets : [],
+    affectedBindings: Array.isArray(report.affectedBindings) ? report.affectedBindings : [],
+    affectedProfiles: Array.isArray(report.affectedProfiles) ? report.affectedProfiles : [],
+    affectedShots: Array.isArray(report.affectedShots) ? report.affectedShots : [],
+    affectedPackages: Array.isArray(report.affectedPackages) ? report.affectedPackages : [],
+    issues: Array.isArray(report.issues)
+      ? report.issues.map((issue) => ({
+        code: issue.code || '',
+        severity: issue.severity || 'warning',
+        targetType: issue.targetType,
+        targetId: issue.targetId,
+        userMessage: issue.userMessage || '',
+        recoveryActions: Array.isArray(issue.recoveryActions) ? issue.recoveryActions : [],
+      }))
+      : [],
+    recoveryActions: Array.isArray(report.recoveryActions) ? report.recoveryActions : [],
+    checkedAt: report.checkedAt || '',
   }
 }
 

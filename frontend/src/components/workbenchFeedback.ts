@@ -66,6 +66,10 @@ export function statusBadgeView(value: string): StatusBadgeView {
       return badge(fallback, 'Missing ref', 'error', 'Reference cannot be resolved in the project.')
     case 'missing_asset':
       return badge(fallback, 'Missing asset', 'error', 'Referenced asset is missing or unreadable.')
+    case 'stale_binding':
+      return badge(fallback, 'Stale binding', 'warning', 'Binding target or asset lineage needs review.')
+    case 'managed_reference':
+      return badge(fallback, 'Managed ref', 'warning', 'Asset points to an explicit managed reference.')
     case 'missing_context':
       return badge(fallback, 'Missing context', 'error', 'Shot context is missing required fields or references.')
     case 'main_reference_missing':

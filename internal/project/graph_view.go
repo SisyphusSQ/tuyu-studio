@@ -335,6 +335,10 @@ func (s *Store) graphNodeDTO(root string, manifest Manifest, node Node, index in
 			badges = append(badges, "missing_asset")
 		case CodeDigestMismatch:
 			badges = append(badges, "context_dirty")
+		case CodeContinuityStaleBinding:
+			badges = append(badges, "stale_binding")
+		case CodeManagedReferenceRisky:
+			badges = append(badges, "managed_reference")
 		}
 	}
 	if !supported {

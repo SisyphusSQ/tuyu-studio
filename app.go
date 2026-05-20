@@ -78,6 +78,22 @@ func (a *App) ProjectMainReferenceSet(command project.SetMainReferenceCommand) p
 	return a.service.ProjectMainReferenceSet(command)
 }
 
+func (a *App) ProjectContinuityList(command project.ListContinuityCommand) project.ContinuityResult {
+	return a.service.ProjectContinuityList(command)
+}
+
+func (a *App) ProjectContinuityRuleSave(command project.SaveContinuityRuleCommand) project.ContinuityResult {
+	return a.service.ProjectContinuityRuleSave(command)
+}
+
+func (a *App) ProjectContinuityRuleUnlock(command project.UnlockContinuityRuleCommand) project.ContinuityResult {
+	return a.service.ProjectContinuityRuleUnlock(command)
+}
+
+func (a *App) ProjectAssetBindingUnlock(command project.UnlockAssetBindingCommand) project.ContinuityResult {
+	return a.service.ProjectAssetBindingUnlock(command)
+}
+
 func (a *App) ProjectScriptDocumentSave(command project.SaveScriptDocumentCommand) project.ScriptDocumentResult {
 	return a.service.ProjectScriptDocumentSave(command)
 }

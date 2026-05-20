@@ -485,8 +485,30 @@ func (s *Store) checkAssetIndex(root string, manifest Manifest) []HealthItem {
 	}
 
 	var items []HealthItem
+	impact := s.buildContinuityImpactIndex(root, manifest, index)
 	for _, asset := range index.Assets {
-		affected := []string{asset.ID}
+		affected := impact.assetAffected[asset.ID]
+		if len(affected) == 0 {
+			affected = []string{asset.ID}
+		}
+		for _, binding := range asset.Bindings {
+			binding = normalizeAssetBinding(asset.ID, binding)
+			if binding.TargetID == "" {
+				continue
+			}
+			if _, ok := impact.profilesByKey[profileKey(binding.TargetType, binding.TargetID)]; ok {
+				continue
+			}
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodeContinuityStaleBinding,
+				Path:            AssetIndexRelativePath,
+				AffectedObjects: cleanStringList(append([]string{asset.ID, binding.ID, binding.TargetID}, impact.bindingAffected[binding.ID]...)),
+				UserMessage:     "Asset binding target is missing and the binding is stale.",
+				TechnicalDetail: binding.TargetType + ":" + binding.TargetID,
+				RecoveryActions: []string{"Restore the binding target profile, or unlock and relink the asset binding with an audit reason."},
+			})
+		}
 		if asset.Source.Kind == AssetSourceManagedReference {
 			items = append(items, HealthItem{
 				Severity:        SeverityWarning,

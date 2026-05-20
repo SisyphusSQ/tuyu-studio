@@ -23,6 +23,17 @@
   "lockedRules": [
     "rule_scene_wet_pavement"
   ],
+  "continuityRules": [
+    {
+      "id": "rule_scene_wet_pavement",
+      "targetType": "scene",
+      "targetId": "scene_laneway_market",
+      "rule": "Wet pavement reflections stay visible in market exterior shots.",
+      "severity": "warning",
+      "locked": true,
+      "createdBy": "system"
+    }
+  ],
   "continuityRuleIds": [
     "rule_scene_wet_pavement"
   ]

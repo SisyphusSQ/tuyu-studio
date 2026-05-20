@@ -20,6 +20,17 @@
   "lockedRules": [
     "rule_prop_lantern_position"
   ],
+  "continuityRules": [
+    {
+      "id": "rule_prop_lantern_position",
+      "targetType": "prop",
+      "targetId": "prop_red_lantern",
+      "rule": "The red lantern remains the warm practical light cue when featured.",
+      "severity": "suggestion",
+      "locked": true,
+      "createdBy": "system"
+    }
+  ],
   "continuityRuleIds": [
     "rule_prop_lantern_position"
   ]

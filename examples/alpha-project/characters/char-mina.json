@@ -22,6 +22,17 @@
   "lockedRules": [
     "rule_char_mina_raincoat"
   ],
+  "continuityRules": [
+    {
+      "id": "rule_char_mina_raincoat",
+      "targetType": "character",
+      "targetId": "char_mina",
+      "rule": "Mina keeps the yellow raincoat visible in rainy exterior shots.",
+      "severity": "blocking",
+      "locked": true,
+      "createdBy": "system"
+    }
+  ],
   "continuityRuleIds": [
     "rule_char_mina_raincoat"
   ]

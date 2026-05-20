@@ -33,6 +33,7 @@ import { computed, h, onMounted, ref } from 'vue'
 
 import {
   type AppErrorDTO,
+  type AssetBindingDTO,
   type AssetBindingDuplicatePolicy,
   type AssetBindingTargetType,
   type AssetDTO,
@@ -41,6 +42,8 @@ import {
   type CanvasGridDTO,
   type CanvasTheme,
   type ContinuityLibraryResultDTO,
+  type ContinuityResultDTO,
+  type ContinuityRuleSeverity,
   type GraphNodeDTO,
   type ProfileDTO,
   type ProjectCanvasDTO,
@@ -71,6 +74,12 @@ import {
   listAssetBindings,
   setMainReference,
 } from './api/assetBindings'
+import {
+  listContinuity,
+  saveContinuityRule,
+  unlockAssetBinding,
+  unlockContinuityRule,
+} from './api/continuity'
 import {
   DEFAULT_SCRIPT_DOCUMENT_ID,
   DEFAULT_SCRIPT_SOURCE_ASSET_ID,
@@ -143,9 +152,11 @@ const assetImportRole = ref(DEFAULT_ASSET_IMPORT_ROLE)
 const assetDuplicatePolicy = ref<AssetDuplicatePolicy>('cancel')
 const assetManagedReference = ref(false)
 const bindingResult = ref<ContinuityLibraryResultDTO>()
+const continuityResult = ref<ContinuityResultDTO>()
 const bindingLoading = ref(false)
 const bindingSubmitting = ref(false)
 const mainReferenceSaving = ref(false)
+const continuityAction = ref('')
 const bindingAssetId = ref('')
 const bindingTargetType = ref<AssetBindingTargetType>(DEFAULT_BINDING_TARGET_TYPE)
 const bindingTargetId = ref(DEFAULT_BINDING_TARGET_ID)
@@ -153,6 +164,12 @@ const bindingPurpose = ref(DEFAULT_BINDING_PURPOSE)
 const bindingDuplicatePolicy = ref<AssetBindingDuplicatePolicy>('cancel')
 const mainReferenceAssetId = ref('')
 const mainReferenceClear = ref(false)
+const continuityRuleId = ref('rule_char_mina_raincoat')
+const continuityRuleText = ref('Mina keeps the yellow raincoat visible in rainy exterior shots.')
+const continuityRuleSeverity = ref<ContinuityRuleSeverity>('blocking')
+const continuityRuleLocked = ref(true)
+const continuityUnlockReason = ref('manual continuity override')
+const bindingUnlockReason = ref('manual binding override')
 const scriptDocument = ref<ScriptDocumentDTO>()
 const scriptResult = ref<ScriptDocumentResultDTO>()
 const scriptTitle = ref('Alpha Script')
@@ -215,7 +232,39 @@ const assetSummary = computed(() => {
 const assetRecoveryActions = computed(() => assetResult.value?.error?.recoveryActions || [])
 const continuityProfiles = computed(() => bindingResult.value?.profiles || [])
 const continuityLineage = computed(() => bindingResult.value?.lineage || [])
+const continuityRules = computed(() => continuityResult.value?.rules || continuityProfiles.value.flatMap((profile) => profile.continuityRules))
+const selectedContinuityProfile = computed(() => continuityProfiles.value.find((profile) => (
+  profile.type === bindingTargetType.value && profile.id === bindingTargetId.value
+)))
+const selectedMainReferenceBinding = computed<AssetBindingDTO | undefined>(() => {
+  const profile = selectedContinuityProfile.value
+  if (!profile?.mainReferenceAssetId) {
+    return undefined
+  }
+  return profile.bindings.find((binding) => (
+    binding.purpose === 'main_reference' &&
+    binding.targetType === profile.type &&
+    binding.targetId === profile.id &&
+    binding.assetId === profile.mainReferenceAssetId
+  ))
+})
+const selectedBindingForUnlock = computed<AssetBindingDTO | undefined>(() => {
+  for (const lineage of continuityLineage.value) {
+    for (const binding of lineage.bindings) {
+      if (
+        binding.assetId === bindingAssetId.value &&
+        binding.targetType === bindingTargetType.value &&
+        binding.targetId === bindingTargetId.value &&
+        (binding.purpose || 'reference') === bindingPurpose.value
+      ) {
+        return binding
+      }
+    }
+  }
+  return undefined
+})
 const bindingRecoveryActions = computed(() => bindingResult.value?.error?.recoveryActions || [])
+const continuityRecoveryActions = computed(() => continuityResult.value?.error?.recoveryActions || continuityResult.value?.impact?.recoveryActions || [])
 const assetStatusType = computed(() => {
   if (assetResult.value?.error?.severity === 'blocking' || assetResult.value?.error?.severity === 'error') {
     return 'error'
@@ -240,10 +289,17 @@ const bindingStatusType = computed(() => {
   return bindingResult.value?.ok ? 'success' : 'info'
 })
 const bindingEventLabel = computed(() => latestEventSummary([], bindingResult.value?.events || [], []))
+const continuityEventLabel = computed(() => latestEventSummary([], continuityResult.value?.events || [], []))
+const continuitySummary = computed(() => {
+  const locked = continuityRules.value.filter((rule) => rule.locked).length
+  const affectedShots = continuityResult.value?.impact?.affectedShots.length || 0
+  return `${continuityRules.value.length} rules · ${locked} locked · ${affectedShots} dirty shots`
+})
 const operationalEvents = computed(() => [
   ...(projectResult.value?.events || []),
   ...(assetResult.value?.events || []),
   ...(bindingResult.value?.events || []),
+  ...(continuityResult.value?.events || []),
   ...(scriptResult.value?.events || []),
   ...(sceneResult.value?.events || []),
 ])
@@ -251,6 +307,7 @@ const auditHealthItems = computed(() => [
   ...(projectResult.value?.health?.items || []),
   ...(assetResult.value?.health?.items || []),
   ...(bindingResult.value?.health?.items || []),
+  ...(continuityResult.value?.health?.items || []),
 ])
 const graphTheme = computed<CanvasTheme>(() => themeMode.value === 'warm' ? 'warm_light' : 'dark')
 const selectedGraphNodeIDs = computed(() => selectedGraphNodes.value.length > 0
@@ -268,6 +325,7 @@ const visibleErrors = computed(() => [
   projectResult.value?.error,
   assetResult.value?.error,
   bindingResult.value?.error,
+  continuityResult.value?.error,
   scriptResult.value?.error,
   sceneResult.value?.error,
   shotContextResult.value?.error,
@@ -279,6 +337,7 @@ const healthStatus = computed(() => highestHealthStatus([
   projectResult.value?.health,
   assetResult.value?.health,
   bindingResult.value?.health,
+  continuityResult.value?.health,
 ], visibleErrors.value))
 const healthStatusTone = computed(() => healthTone(healthStatus.value))
 const errorSummary = computed(() => firstErrorSummary([
@@ -290,6 +349,7 @@ const latestEventLabel = computed(() => latestEventSummary(
     ...(projectResult.value?.events || []),
     ...(assetResult.value?.events || []),
     ...(bindingResult.value?.events || []),
+    ...(continuityResult.value?.events || []),
     ...(scriptResult.value?.events || []),
     ...(sceneResult.value?.events || []),
     ...(shotContextResult.value?.events || []),
@@ -419,6 +479,8 @@ async function loadCurrentAssetBindings(revealTasks = true) {
   bindingLoading.value = true
   bindingResult.value = await listAssetBindings()
   ingestContinuityResult(bindingResult.value)
+  continuityResult.value = await listContinuity()
+  synchronizeContinuityDefaults()
   if (revealTasks) {
     activeInspectorTab.value = 'tasks'
   }
@@ -461,11 +523,99 @@ async function setCurrentMainReference() {
   mainReferenceSaving.value = false
 }
 
+async function saveCurrentContinuityRule() {
+  continuityAction.value = 'save-rule'
+  continuityResult.value = await saveContinuityRule({
+    id: continuityRuleId.value,
+    targetType: bindingTargetType.value,
+    targetId: bindingTargetId.value,
+    rule: continuityRuleText.value,
+    severity: continuityRuleSeverity.value,
+    locked: continuityRuleLocked.value,
+  })
+  synchronizeContinuityDefaults()
+  if (continuityResult.value.ok) {
+    await loadCurrentAssetBindings(false)
+    await loadProjectGraph()
+  } else {
+    activeInspectorTab.value = 'tasks'
+  }
+  continuityAction.value = ''
+}
+
+async function unlockCurrentContinuityRule() {
+  continuityAction.value = 'unlock-rule'
+  continuityResult.value = await unlockContinuityRule({
+    ruleId: continuityRuleId.value,
+    reason: continuityUnlockReason.value,
+  })
+  synchronizeContinuityDefaults()
+  if (continuityResult.value.ok) {
+    await loadCurrentAssetBindings(false)
+    await loadProjectGraph()
+  } else {
+    activeInspectorTab.value = 'tasks'
+  }
+  continuityAction.value = ''
+}
+
+async function unlockCurrentAssetBinding() {
+  const binding = selectedBindingForUnlock.value
+  continuityAction.value = 'unlock-binding'
+  continuityResult.value = await unlockAssetBinding({
+    bindingId: binding?.id,
+    assetId: bindingAssetId.value,
+    targetType: bindingTargetType.value,
+    targetId: bindingTargetId.value,
+    purpose: bindingPurpose.value,
+    reason: bindingUnlockReason.value,
+  })
+  if (continuityResult.value.ok) {
+    await loadCurrentAssetBindings(false)
+    await loadProjectGraph()
+  } else {
+    activeInspectorTab.value = 'tasks'
+  }
+  continuityAction.value = ''
+}
+
+async function unlockCurrentMainReferenceBinding() {
+  const binding = selectedMainReferenceBinding.value
+  if (!binding) {
+    return
+  }
+  continuityAction.value = 'unlock-main-reference'
+  continuityResult.value = await unlockAssetBinding({
+    bindingId: binding.id,
+    reason: bindingUnlockReason.value,
+  })
+  if (continuityResult.value.ok) {
+    await loadCurrentAssetBindings(false)
+    await loadProjectGraph()
+  } else {
+    activeInspectorTab.value = 'tasks'
+  }
+  continuityAction.value = ''
+}
+
 function ingestContinuityResult(result: ContinuityLibraryResultDTO) {
   if (result.assets.length) {
     assetRows.value = result.assets
   }
   synchronizeBindingDefaults(result)
+}
+
+function synchronizeContinuityDefaults() {
+  const rule = continuityRules.value.find((item) => item.id === continuityRuleId.value) || continuityRules.value[0]
+  if (!rule) {
+    return
+  }
+  continuityRuleId.value = rule.id
+  continuityRuleText.value = rule.rule
+  continuityRuleSeverity.value = rule.severity === 'warning' || rule.severity === 'suggestion' ? rule.severity : 'blocking'
+  continuityRuleLocked.value = rule.locked
+  bindingTargetType.value = normalizeBindingTargetType(rule.targetType)
+  bindingTargetId.value = rule.targetId
 }
 
 async function runProbe(mode: WorkbenchProbeMode) {
@@ -1070,6 +1220,98 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
                   </Button>
                 </div>
               </div>
+              <div class="binding-panel">
+                <div class="script-editor-bar">
+                  <Tag color="purple">Rules</Tag>
+                  <Tag>{{ continuitySummary }}</Tag>
+                </div>
+                <label class="script-field">
+                  <span>Rule id</span>
+                  <input
+                    v-model="continuityRuleId"
+                    class="script-input"
+                    type="text"
+                    autocomplete="off"
+                  >
+                </label>
+                <label class="script-field">
+                  <span>Rule</span>
+                  <textarea
+                    v-model="continuityRuleText"
+                    class="script-textarea"
+                    rows="3"
+                  />
+                </label>
+                <div class="asset-import-grid">
+                  <label class="script-field">
+                    <span>Severity</span>
+                    <select v-model="continuityRuleSeverity" class="script-input">
+                      <option value="blocking">Blocking</option>
+                      <option value="warning">Warning</option>
+                      <option value="suggestion">Suggestion</option>
+                    </select>
+                  </label>
+                  <label class="check-row check-row--stacked">
+                    <input v-model="continuityRuleLocked" type="checkbox">
+                    <span>Locked</span>
+                  </label>
+                </div>
+                <label class="script-field">
+                  <span>Unlock reason</span>
+                  <input
+                    v-model="continuityUnlockReason"
+                    class="script-input"
+                    type="text"
+                    autocomplete="off"
+                  >
+                </label>
+                <label class="script-field">
+                  <span>Binding unlock reason</span>
+                  <input
+                    v-model="bindingUnlockReason"
+                    class="script-input"
+                    type="text"
+                    autocomplete="off"
+                  >
+                </label>
+                <div class="rail-toolbar">
+                  <Button size="small" :loading="continuityAction === 'save-rule'" :disabled="!bindingTargetId.trim() || !continuityRuleText.trim()" @click="saveCurrentContinuityRule">
+                    <template #icon>
+                      <SaveOutlined />
+                    </template>
+                    Save rule
+                  </Button>
+                  <Button size="small" :loading="continuityAction === 'unlock-rule'" :disabled="!continuityRuleId.trim() || !continuityUnlockReason.trim()" @click="unlockCurrentContinuityRule">
+                    Unlock rule
+                  </Button>
+                  <Button size="small" :loading="continuityAction === 'unlock-binding'" :disabled="!bindingAssetId.trim() || !bindingTargetId.trim() || !bindingUnlockReason.trim()" @click="unlockCurrentAssetBinding">
+                    Unlock binding
+                  </Button>
+                  <Button size="small" :loading="continuityAction === 'unlock-main-reference'" :disabled="!selectedMainReferenceBinding || !bindingUnlockReason.trim()" @click="unlockCurrentMainReferenceBinding">
+                    Unlock main ref
+                  </Button>
+                </div>
+              </div>
+              <Alert
+                v-if="continuityResult"
+                class="service-alert"
+                :type="continuityResult.error ? 'warning' : 'success'"
+                show-icon
+                :message="continuityResult.error?.userMessage || continuitySummary"
+                :description="continuityResult.error ? `${continuityResult.error.code} · ${continuityResult.error.correlationId}` : continuityEventLabel"
+              />
+              <List
+                v-if="continuityRecoveryActions.length"
+                class="recovery-list"
+                size="small"
+                :data-source="continuityRecoveryActions"
+              >
+                <template #renderItem="{ item }">
+                  <ListItem>
+                    <span>{{ item }}</span>
+                  </ListItem>
+                </template>
+              </List>
               <Alert
                 v-if="bindingResult"
                 class="service-alert"
