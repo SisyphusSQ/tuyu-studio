@@ -149,3 +149,23 @@ func (a *App) ProjectMockRunCancel(command project.MockRunCommand) project.MockR
 func (a *App) ProjectMockRunRetry(command project.MockRunCommand) project.MockRunResult {
 	return a.service.ProjectMockRunRetry(command)
 }
+
+func (a *App) ProjectResultImport(command project.ImportResultCommand) project.ResultReviewResult {
+	return a.service.ProjectResultImport(command)
+}
+
+func (a *App) ProjectResultsList(command project.ListResultsCommand) project.ResultReviewResult {
+	return a.service.ProjectResultsList(command)
+}
+
+func (a *App) ProjectResultTrace(command project.TraceResultCommand) project.ResultReviewResult {
+	return a.service.ProjectResultTrace(command)
+}
+
+func (a *App) ProjectResultReviewUpdate(command project.UpdateResultReviewCommand) project.ResultReviewResult {
+	return a.service.ProjectResultReviewUpdate(command)
+}
+
+func (a *App) ProjectResultRebind(command project.RebindResultCommand) project.ResultReviewResult {
+	return a.service.ProjectResultRebind(command)
+}

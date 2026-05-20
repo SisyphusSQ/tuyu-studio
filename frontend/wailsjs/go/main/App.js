@@ -78,6 +78,26 @@ export function ProjectOpen(arg1) {
   return window['go']['main']['App']['ProjectOpen'](arg1);
 }
 
+export function ProjectResultImport(arg1) {
+  return window['go']['main']['App']['ProjectResultImport'](arg1);
+}
+
+export function ProjectResultRebind(arg1) {
+  return window['go']['main']['App']['ProjectResultRebind'](arg1);
+}
+
+export function ProjectResultReviewUpdate(arg1) {
+  return window['go']['main']['App']['ProjectResultReviewUpdate'](arg1);
+}
+
+export function ProjectResultTrace(arg1) {
+  return window['go']['main']['App']['ProjectResultTrace'](arg1);
+}
+
+export function ProjectResultsList(arg1) {
+  return window['go']['main']['App']['ProjectResultsList'](arg1);
+}
+
 export function ProjectSave(arg1) {
   return window['go']['main']['App']['ProjectSave'](arg1);
 }

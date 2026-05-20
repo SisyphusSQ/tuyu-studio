@@ -542,6 +542,9 @@ func (s *Store) syntheticResultNodes(root string, manifest Manifest, offset int,
 		if entry.IsDir() {
 			continue
 		}
+		if entry.Name() == "index.json" {
+			continue
+		}
 		relative := path.Clean(manifest.Paths.AssetResults + "/" + entry.Name())
 		title, summary := readMarkdownTitleAndStatus(filepath.Join(resultsRoot, entry.Name()), "Video Result")
 		id := "node_result_" + safeFileToken(strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name())))
@@ -630,6 +633,10 @@ func (s *Store) nodeDisplaySummary(root string, manifest Manifest, filename stri
 		return nodeDisplaySummary{title: title, data: data, source: "human"}
 	case "package":
 		title, summary := readPackageSummary(filename)
+		data["summary"] = summary
+		return nodeDisplaySummary{title: title, data: data, source: "system"}
+	case "video_result":
+		title, summary := readResultSummary(filename)
 		data["summary"] = summary
 		return nodeDisplaySummary{title: title, data: data, source: "system"}
 	case "note":
@@ -904,14 +911,20 @@ func statusBadges(kind string, status string) []string {
 			return []string{"package_ready"}
 		}
 		return []string{"context_dirty"}
-	case "pending", "pending_review":
+	case "pending", "pending_review", "review_pending":
 		return []string{"pending_review"}
+	case "binding_pending":
+		return []string{"binding_pending"}
 	case "pending_confirmation", "not_submitted":
 		return []string{"context_dirty"}
 	case "approved":
 		return []string{"approved"}
 	case "needs_revision":
 		return []string{"needs_revision"}
+	case "rejected":
+		return []string{"rejected"}
+	case "missing_file":
+		return []string{"missing_file"}
 	default:
 		return []string{}
 	}
@@ -1072,6 +1085,31 @@ func readReviewSummary(filename string) (string, string) {
 		title = "Review note " + review.ID
 	}
 	summary := cleanSummaryParts(review.Decision, review.TargetID)
+	return title, summary
+}
+
+func readResultSummary(filename string) (string, string) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return "Video Result", "Result record could not be read."
+	}
+
+	var result struct {
+		ID           string `json:"id"`
+		ShotID       string `json:"shotId"`
+		PackageID    string `json:"packageId"`
+		Status       string `json:"status"`
+		ReviewStatus string `json:"reviewStatus"`
+	}
+	if err := json.Unmarshal(data, &result); err != nil {
+		return "Video Result", "Result record could not be decoded."
+	}
+
+	title := "Video Result"
+	if result.ID != "" {
+		title = "Result " + result.ID
+	}
+	summary := cleanSummaryParts(result.Status, result.ReviewStatus, result.ShotID, result.PackageID)
 	return title, summary
 }
 
