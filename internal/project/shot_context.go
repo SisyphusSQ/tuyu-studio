@@ -166,7 +166,7 @@ func (s *Store) PromoteShotContext(command PromoteShotContextCommand) ShotContex
 			report,
 		)
 	}
-	if !manifestHasShotNode(manifest, record.shot.ID) {
+	if !manifestHasShotNode(root, manifest, record.shot.ID) {
 		return s.shotContextFailure(CodeShotGraphNodeMissing, SeverityBlocking, false, correlationID, "Shot graph node is missing.", "shots/"+record.shot.ID+".json", report)
 	}
 
@@ -220,7 +220,7 @@ func (s *Store) MarkShotContextDirty(command MarkShotContextDirtyCommand) ShotCo
 	if errResult != nil {
 		return *errResult
 	}
-	if !manifestHasShotNode(manifest, record.shot.ID) {
+	if !manifestHasShotNode(root, manifest, record.shot.ID) {
 		return s.shotContextFailure(CodeShotGraphNodeMissing, SeverityBlocking, false, correlationID, "Shot graph node is missing.", "shots/"+record.shot.ID+".json", ShotContextReportDTO{})
 	}
 	now := s.now().UTC()
@@ -322,6 +322,18 @@ func (s *Store) validateShotReferences(root string, manifest Manifest, shot Shot
 			report.Blocking = append(report.Blocking, shotContextIssue(CodeShotReferenceMissing, SeverityBlocking, "referenceAssetIds", id, "Shot reference asset cannot be resolved.", "Restore or relink the project reference asset before promoting context."))
 		}
 	}
+	for _, characterRef := range shot.CharacterRefs {
+		id := strings.TrimSpace(characterRef.ReferenceAssetID)
+		if id == "" {
+			continue
+		}
+		ref := s.referenceAssetCheck(root, assets, id)
+		ref.Field = "characterRefs.referenceAssetId"
+		report.References = append(report.References, ref)
+		if ref.Status != "resolved" {
+			report.Blocking = append(report.Blocking, shotContextIssue(CodeShotReferenceMissing, SeverityBlocking, "characterRefs.referenceAssetId", id, "Shot character reference asset cannot be resolved.", "Restore or relink the character reference asset before promoting context."))
+		}
+	}
 	return report
 }
 
@@ -382,6 +394,19 @@ func (s *Store) referenceAssetIndex(root string, manifest Manifest) map[string]r
 	assets := map[string]referenceAssetEntry{}
 	for _, directory := range []string{manifest.Paths.Characters, manifest.Paths.Scenes, manifest.Paths.Props} {
 		s.collectReferenceAssets(root, directory, assets)
+	}
+	if index, err := s.loadAssetIndex(root, manifest.Project.ID); err == nil {
+		for _, asset := range index.Assets {
+			id := strings.TrimSpace(asset.ID)
+			if id == "" {
+				continue
+			}
+			assets[id] = referenceAssetEntry{
+				id:       id,
+				path:     cleanProjectRelativePath(asset.RelativePath),
+				declared: true,
+			}
+		}
 	}
 	return assets
 }
@@ -490,16 +515,20 @@ func (s *Store) writeShotRaw(root string, manifest Manifest, shotID string, raw 
 }
 
 func (s *Store) updateManifestShotStatus(root string, manifest Manifest, shotID string, status string, now time.Time) error {
-	shotRelativePath := path.Join(path.Clean(strings.ReplaceAll(manifest.Paths.Shots, "\\", "/")), shotID+".json")
+	shotNodeID := manifestShotNodeID(root, manifest, shotID)
 	updated := false
 	for index := range manifest.Graph.Nodes {
 		node := &manifest.Graph.Nodes[index]
-		if strings.TrimSpace(node.Kind) == "shot" && path.Clean(strings.ReplaceAll(node.RefID, "\\", "/")) == shotRelativePath {
+		if strings.TrimSpace(node.Kind) == "shot" && strings.TrimSpace(node.ID) == shotNodeID {
 			node.Status = status
 			updated = true
 		}
 	}
-	if !updated {
+	packageUpdated, err := s.markPackagesStaleForShots(root, &manifest, []string{shotID}, now)
+	if err != nil {
+		return err
+	}
+	if !updated && !packageUpdated {
 		return nil
 	}
 	manifest.Project.UpdatedAt = now.UTC().Format(time.RFC3339)
@@ -636,14 +665,8 @@ func canPromoteShotContextStatus(status string) bool {
 	}
 }
 
-func manifestHasShotNode(manifest Manifest, shotID string) bool {
-	shotRelativePath := path.Join(path.Clean(strings.ReplaceAll(manifest.Paths.Shots, "\\", "/")), shotID+".json")
-	for _, node := range manifest.Graph.Nodes {
-		if strings.TrimSpace(node.Kind) == "shot" && path.Clean(strings.ReplaceAll(node.RefID, "\\", "/")) == shotRelativePath {
-			return true
-		}
-	}
-	return false
+func manifestHasShotNode(root string, manifest Manifest, shotID string) bool {
+	return manifestShotNodeID(root, manifest, shotID) != ""
 }
 
 func shotContextIssue(code string, severity string, field string, referenceID string, userMessage string, recoveryAction string) ShotContextIssueDTO {
@@ -669,7 +692,39 @@ func normalizeExistingShotID(shotID string) (string, error) {
 }
 
 func shotPath(root string, manifest Manifest, shotID string) string {
+	if relative := shotRelativePathByID(root, manifest, shotID); relative != "" {
+		return filepath.Join(root, filepath.FromSlash(relative))
+	}
 	return filepath.Join(root, filepath.FromSlash(path.Join(manifest.Paths.Shots, shotID+".json")))
+}
+
+func shotRelativePathByID(root string, manifest Manifest, shotID string) string {
+	shotID = strings.TrimSpace(shotID)
+	if shotID == "" {
+		return ""
+	}
+	dirRelative := path.Clean(strings.ReplaceAll(manifest.Paths.Shots, "\\", "/"))
+	entries, err := os.ReadDir(filepath.Join(root, filepath.FromSlash(dirRelative)))
+	if err != nil {
+		return ""
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		relative := path.Join(dirRelative, entry.Name())
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
+		if err != nil {
+			continue
+		}
+		var value struct {
+			ID string `json:"id"`
+		}
+		if json.Unmarshal(data, &value) == nil && strings.TrimSpace(value.ID) == shotID {
+			return relative
+		}
+	}
+	return ""
 }
 
 func patchShotRaw(raw map[string]any, shot ShotCardDTO) {

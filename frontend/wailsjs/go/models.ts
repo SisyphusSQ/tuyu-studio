@@ -868,6 +868,26 @@ export namespace project {
 	    }
 	}
 
+	export class ExportGenerationPackageCommand {
+	    root: string;
+	    shotId: string;
+	    providerProfileId?: string;
+	    createdBy?: string;
+	    correlationId: string;
+
+	    static createFrom(source: any = {}) {
+	        return new ExportGenerationPackageCommand(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.root = source["root"];
+	        this.shotId = source["shotId"];
+	        this.providerProfileId = source["providerProfileId"];
+	        this.createdBy = source["createdBy"];
+	        this.correlationId = source["correlationId"];
+	    }
+	}
 	export class FrameHistorySummaryDTO {
 	    currentRunId?: string;
 	    favoriteRunIds: string[];
@@ -883,6 +903,127 @@ export namespace project {
 	        this.favoriteRunIds = source["favoriteRunIds"];
 	        this.latestSuccessfulRunId = source["latestSuccessfulRunId"];
 	    }
+	}
+	export class GenerationPackageReferenceDTO {
+	    assetId: string;
+	    sourcePath: string;
+	    packagePath: string;
+	    digest?: string;
+	    mimeType?: string;
+	    sizeBytes?: number;
+
+	    static createFrom(source: any = {}) {
+	        return new GenerationPackageReferenceDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.assetId = source["assetId"];
+	        this.sourcePath = source["sourcePath"];
+	        this.packagePath = source["packagePath"];
+	        this.digest = source["digest"];
+	        this.mimeType = source["mimeType"];
+	        this.sizeBytes = source["sizeBytes"];
+	    }
+	}
+	export class GenerationPackageDTO {
+	    packageId: string;
+	    projectId: string;
+	    sceneId: string;
+	    shotId: string;
+	    packageVersion: number;
+	    providerProfileId: string;
+	    generationPackageStatus: string;
+	    contextDigest: string;
+	    relativePath: string;
+	    manifestPath: string;
+	    promptPath: string;
+	    scriptExcerptPath: string;
+	    continuityPath: string;
+	    uploadChecklistPath: string;
+	    references: GenerationPackageReferenceDTO[];
+	    createdAt: string;
+
+	    static createFrom(source: any = {}) {
+	        return new GenerationPackageDTO(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.packageId = source["packageId"];
+	        this.projectId = source["projectId"];
+	        this.sceneId = source["sceneId"];
+	        this.shotId = source["shotId"];
+	        this.packageVersion = source["packageVersion"];
+	        this.providerProfileId = source["providerProfileId"];
+	        this.generationPackageStatus = source["generationPackageStatus"];
+	        this.contextDigest = source["contextDigest"];
+	        this.relativePath = source["relativePath"];
+	        this.manifestPath = source["manifestPath"];
+	        this.promptPath = source["promptPath"];
+	        this.scriptExcerptPath = source["scriptExcerptPath"];
+	        this.continuityPath = source["continuityPath"];
+	        this.uploadChecklistPath = source["uploadChecklistPath"];
+	        this.references = this.convertValues(source["references"], GenerationPackageReferenceDTO);
+	        this.createdAt = source["createdAt"];
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+	export class GenerationPackageResult {
+	    ok: boolean;
+	    package?: GenerationPackageDTO;
+	    health?: HealthReport;
+	    error?: OperationError;
+	    events: ProjectEvent[];
+
+	    static createFrom(source: any = {}) {
+	        return new GenerationPackageResult(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ok = source["ok"];
+	        this.package = this.convertValues(source["package"], GenerationPackageDTO);
+	        this.health = this.convertValues(source["health"], HealthReport);
+	        this.error = this.convertValues(source["error"], OperationError);
+	        this.events = this.convertValues(source["events"], ProjectEvent);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
 	}
 	export class GraphEdgeDTO {
 	    id: string;

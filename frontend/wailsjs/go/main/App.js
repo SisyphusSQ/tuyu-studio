@@ -42,6 +42,10 @@ export function ProjectCreate(arg1) {
   return window['go']['main']['App']['ProjectCreate'](arg1);
 }
 
+export function ProjectGenerationPackageExport(arg1) {
+  return window['go']['main']['App']['ProjectGenerationPackageExport'](arg1);
+}
+
 export function ProjectGraphLayoutSave(arg1) {
   return window['go']['main']['App']['ProjectGraphLayoutSave'](arg1);
 }

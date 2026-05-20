@@ -624,6 +624,9 @@ func (s *Store) nodeDisplaySummary(root string, manifest Manifest, filename stri
 		title, summary := readJSONSummary(filename, "title", "description", titleFallback(relative))
 		data["summary"] = summary
 		data["role"] = "production_unit"
+		if shotID := readJSONStringField(filename, "id"); shotID != "" {
+			data["shotId"] = shotID
+		}
 		return nodeDisplaySummary{title: title, data: data, source: "human"}
 	case "package":
 		title, summary := readPackageSummary(filename)
@@ -1011,6 +1014,19 @@ func readJSONSummary(filename string, titleField string, summaryField string, fa
 		summary = stringValue(value["status"])
 	}
 	return title, summary
+}
+
+func readJSONStringField(filename string, field string) string {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return ""
+	}
+	var value map[string]any
+	if err := json.Unmarshal(data, &value); err != nil {
+		return ""
+	}
+	text, _ := value[field].(string)
+	return strings.TrimSpace(text)
 }
 
 func readPackageSummary(filename string) (string, string) {

@@ -216,14 +216,22 @@ type auditEntry struct {
 }
 
 type packageManifest struct {
-	ProjectID           string   `json:"projectId"`
-	SceneID             string   `json:"sceneId"`
-	ShotID              string   `json:"shotId"`
-	PackageID           string   `json:"packageId"`
-	PromptPath          string   `json:"promptPath"`
-	ContinuityPath      string   `json:"continuityPath"`
-	UploadChecklistPath string   `json:"uploadChecklistPath"`
-	References          []string `json:"references"`
+	SchemaVersion           string   `json:"schemaVersion,omitempty"`
+	ProjectID               string   `json:"projectId"`
+	SceneID                 string   `json:"sceneId"`
+	ShotID                  string   `json:"shotId"`
+	PackageID               string   `json:"packageId"`
+	PackageVersion          int      `json:"packageVersion,omitempty"`
+	ProviderProfileID       string   `json:"providerProfileId,omitempty"`
+	GenerationPackageStatus string   `json:"generationPackageStatus,omitempty"`
+	ContextDigest           string   `json:"contextDigest,omitempty"`
+	PromptPath              string   `json:"promptPath"`
+	ScriptExcerptPath       string   `json:"scriptExcerptPath,omitempty"`
+	ContinuityPath          string   `json:"continuityPath"`
+	UploadChecklistPath     string   `json:"uploadChecklistPath"`
+	References              []string `json:"references"`
+	CreatedAt               string   `json:"createdAt,omitempty"`
+	ManifestPath            string   `json:"-"`
 }
 
 type atomicWriteError struct {
@@ -945,6 +953,12 @@ func (s *Store) checkPackageManifest(root string, manifestRelativePath string) [
 		{field: "promptPath", value: manifest.PromptPath},
 		{field: "continuityPath", value: manifest.ContinuityPath},
 		{field: "uploadChecklistPath", value: manifest.UploadChecklistPath},
+	}
+	if strings.TrimSpace(manifest.ScriptExcerptPath) != "" {
+		references = append(references, struct {
+			field string
+			value string
+		}{field: "scriptExcerptPath", value: manifest.ScriptExcerptPath})
 	}
 	for index, reference := range manifest.References {
 		references = append(references, struct {

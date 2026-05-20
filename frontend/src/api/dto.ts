@@ -11,6 +11,7 @@ export type AssetThumbnailStatus = 'placeholder' | 'thumbnail_failed' | 'none' |
 export type AssetBindingTargetType = 'character' | 'scene' | 'prop'
 export type AssetBindingDuplicatePolicy = 'cancel' | 'reuse'
 export type ContinuityRuleSeverity = 'blocking' | 'warning' | 'suggestion'
+export type GenerationPackageStatus = 'draft' | 'ready' | 'handed_off' | 'result_received' | 'stale' | 'invalid' | string
 
 export interface AppErrorDTO {
   code: string
@@ -696,6 +697,50 @@ export interface ShotContextResultDTO {
   events: ProjectEventDTO[]
 }
 
+export interface ExportGenerationPackageCommandDTO {
+  root?: string
+  shotId: string
+  providerProfileId?: string
+  createdBy?: string
+  correlationId?: string
+}
+
+export interface GenerationPackageReferenceDTO {
+  assetId: string
+  sourcePath: string
+  packagePath: string
+  digest?: string
+  mimeType?: string
+  sizeBytes?: number
+}
+
+export interface GenerationPackageDTO {
+  packageId: string
+  projectId: string
+  sceneId: string
+  shotId: string
+  packageVersion: number
+  providerProfileId: string
+  generationPackageStatus: GenerationPackageStatus
+  contextDigest: string
+  relativePath: string
+  manifestPath: string
+  promptPath: string
+  scriptExcerptPath: string
+  continuityPath: string
+  uploadChecklistPath: string
+  references: GenerationPackageReferenceDTO[]
+  createdAt: string
+}
+
+export interface GenerationPackageResultDTO {
+  ok: boolean
+  package?: GenerationPackageDTO
+  health?: HealthReportDTO
+  error?: AppErrorDTO
+  events: ProjectEventDTO[]
+}
+
 export interface ScriptSceneCandidateResultDTO {
   ok: boolean
   document?: ScriptDocumentDTO
@@ -1041,6 +1086,41 @@ export function normalizeShotContextResult(
   }
 }
 
+export function normalizeGenerationPackageResult(
+  result: Partial<GenerationPackageResultDTO> | null | undefined,
+  correlationId: string,
+): GenerationPackageResultDTO {
+  if (!result) {
+    return {
+      ok: false,
+      error: normalizeUnknownError(new Error('empty generation package response'), correlationId),
+      events: [],
+    }
+  }
+
+  const events = Array.isArray(result.events)
+    ? result.events.map((event) => ({
+      ...event,
+      error: event.error ? normalizeAppError(event.error, correlationId) : undefined,
+      nextActions: Array.isArray(event.nextActions) ? event.nextActions : [],
+    }))
+    : []
+  const health = result.health
+    ? {
+      ...result.health,
+      items: Array.isArray(result.health.items) ? result.health.items : [],
+    }
+    : undefined
+
+  return {
+    ok: Boolean(result.ok),
+    package: result.package ? normalizeGenerationPackage(result.package) : undefined,
+    health,
+    error: result.error ? normalizeAppError(result.error, correlationId) : undefined,
+    events,
+  }
+}
+
 function normalizeProjectCanvas(canvas: ProjectCanvasDTO): ProjectCanvasDTO {
   return {
     ...canvas,
@@ -1303,6 +1383,36 @@ function normalizeShotContextIssue(issue: Partial<ShotContextIssueDTO>): ShotCon
     referenceId: issue.referenceId,
     userMessage: issue.userMessage || '',
     recoveryActions: Array.isArray(issue.recoveryActions) ? issue.recoveryActions : [],
+  }
+}
+
+function normalizeGenerationPackage(pkg: Partial<GenerationPackageDTO>): GenerationPackageDTO {
+  return {
+    packageId: pkg.packageId || '',
+    projectId: pkg.projectId || '',
+    sceneId: pkg.sceneId || '',
+    shotId: pkg.shotId || '',
+    packageVersion: Number(pkg.packageVersion || 0),
+    providerProfileId: pkg.providerProfileId || '',
+    generationPackageStatus: pkg.generationPackageStatus || 'invalid',
+    contextDigest: pkg.contextDigest || '',
+    relativePath: pkg.relativePath || '',
+    manifestPath: pkg.manifestPath || '',
+    promptPath: pkg.promptPath || '',
+    scriptExcerptPath: pkg.scriptExcerptPath || '',
+    continuityPath: pkg.continuityPath || '',
+    uploadChecklistPath: pkg.uploadChecklistPath || '',
+    references: Array.isArray(pkg.references)
+      ? pkg.references.map((reference) => ({
+        assetId: reference.assetId || '',
+        sourcePath: reference.sourcePath || '',
+        packagePath: reference.packagePath || '',
+        digest: reference.digest,
+        mimeType: reference.mimeType,
+        sizeBytes: Number(reference.sizeBytes || 0),
+      }))
+      : [],
+    createdAt: pkg.createdAt || '',
   }
 }
 

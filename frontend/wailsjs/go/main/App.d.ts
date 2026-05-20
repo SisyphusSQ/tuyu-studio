@@ -23,6 +23,8 @@ export function ProjectContinuityRuleUnlock(arg1:project.UnlockContinuityRuleCom
 
 export function ProjectCreate(arg1:project.CreateProjectCommand):Promise<project.OperationResult>;
 
+export function ProjectGenerationPackageExport(arg1:project.ExportGenerationPackageCommand):Promise<project.GenerationPackageResult>;
+
 export function ProjectGraphLayoutSave(arg1:project.SaveGraphLayoutCommand):Promise<project.GraphViewResult>;
 
 export function ProjectGraphView(arg1:project.GraphViewCommand):Promise<project.GraphViewResult>;
