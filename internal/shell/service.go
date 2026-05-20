@@ -105,6 +105,7 @@ func (s *Service) Info() Info {
 			"project_lock",
 			"project_health_check",
 			"project_graph_view",
+			"project_graph_layout_save",
 		},
 	}
 }
@@ -148,6 +149,11 @@ func (s *Service) ProjectHealth(command project.CheckProjectHealthCommand) proje
 func (s *Service) ProjectGraphView(command project.GraphViewCommand) project.GraphViewResult {
 	command.Root = s.projectRoot(command.Root)
 	return s.projectStore.GraphView(command)
+}
+
+func (s *Service) ProjectGraphLayoutSave(command project.SaveGraphLayoutCommand) project.GraphViewResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.SaveGraphLayout(command)
 }
 
 func (s *Service) WorkbenchProbe(command WorkbenchProbeCommand) WorkbenchProbeResult {

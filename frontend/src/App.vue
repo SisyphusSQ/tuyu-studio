@@ -22,24 +22,30 @@ import {
   FileTextOutlined,
   FolderOpenOutlined,
   HistoryOutlined,
-  PlayCircleOutlined,
   SaveOutlined,
   SearchOutlined,
   SettingOutlined,
   ShareAltOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons-vue'
-import { h, ref } from 'vue'
+import { computed, h, onMounted, ref } from 'vue'
 
 import {
   type AppErrorDTO,
+  type CanvasGridDTO,
+  type CanvasTheme,
+  type GraphNodeDTO,
+  type ProjectCanvasDTO,
+  type ProjectGraphLayoutSaveCommandDTO,
+  type ProjectGraphViewResultDTO,
   type ProjectOperationName,
   type ProjectOperationResultDTO,
   type RuntimeEventDTO,
   type WorkbenchProbeMode,
   type WorkbenchStatusDTO,
 } from './api/dto'
-import { runProjectOperation, runWorkbenchProbe } from './api/workbench'
+import { runProjectGraphView, runProjectOperation, runWorkbenchProbe, saveProjectGraphLayout } from './api/workbench'
+import GraphCanvas from './components/GraphCanvas.vue'
 
 const LayoutHeader = Layout.Header
 const LayoutContent = Layout.Content
@@ -57,6 +63,15 @@ const probeError = ref<AppErrorDTO>()
 const runtimeEvents = ref<RuntimeEventDTO[]>([])
 const projectLoading = ref<ProjectOperationName>()
 const projectResult = ref<ProjectOperationResultDTO>()
+const graphCanvasRef = ref<InstanceType<typeof GraphCanvas>>()
+const graphLoading = ref(false)
+const graphSaving = ref(false)
+const graphResult = ref<ProjectGraphViewResultDTO>()
+const activeGraphCanvas = ref<ProjectCanvasDTO>()
+const selectedGraphNode = ref<GraphNodeDTO>()
+const selectedGraphNodes = ref<GraphNodeDTO[]>([])
+const graphViewportLabel = ref('100%')
+const canvasGrid = ref<CanvasGridDTO>({ visible: true, size: 24, opacity: 0.24 })
 
 const railItems = [
   { key: 'assets', icon: () => h(DatabaseOutlined), label: 'Assets' },
@@ -72,17 +87,39 @@ const assets = [
   { name: 'dialogue-source.txt', type: 'script', status: 'draft' },
 ]
 
-const canvasNodes = [
-  { title: 'Script source', meta: '7 scenes detected', state: 'draft' },
-  { title: 'Character reference group', meta: '2 locked rules', state: 'ready' },
-  { title: 'Shot candidate table', meta: 'awaiting confirmation', state: 'blocked' },
-]
-
 const queueItems = [
   { label: 'Package export', value: 'idle' },
   { label: 'Mock run', value: 'not configured' },
   { label: 'Review import', value: 'waiting for TOO-180' },
 ]
+
+const graphCanvas = computed(() => activeGraphCanvas.value)
+const graphErrors = computed(() => graphResult.value?.errors || [])
+const graphTheme = computed<CanvasTheme>(() => themeMode.value === 'warm' ? 'warm_light' : 'dark')
+const selectedRelations = computed(() => {
+  const selectedIDs = selectedGraphNodes.value.length > 0
+    ? new Set(selectedGraphNodes.value.map((node) => node.id))
+    : selectedGraphNode.value
+      ? new Set([selectedGraphNode.value.id])
+      : new Set<string>()
+  if (selectedIDs.size === 0 || !graphCanvas.value) {
+    return []
+  }
+  return graphCanvas.value.edges.filter((edge) => selectedIDs.has(edge.sourceNodeId) || selectedIDs.has(edge.targetNodeId))
+})
+const canvasHealthType = computed(() => {
+  if (graphResult.value?.health?.status === 'blocking') {
+    return 'error'
+  }
+  if (graphResult.value?.health?.status === 'warning' || graphErrors.value.length > 0) {
+    return 'warning'
+  }
+  return 'success'
+})
+
+onMounted(() => {
+  void loadProjectGraph()
+})
 
 async function runProbe(mode: WorkbenchProbeMode) {
   probeLoading.value = true
@@ -100,6 +137,52 @@ async function runProjectAction(action: ProjectOperationName) {
   projectResult.value = await runProjectOperation(action)
   activeInspectorTab.value = 'tasks'
   projectLoading.value = undefined
+}
+
+async function loadProjectGraph(expectedGraphVersion?: number) {
+  graphLoading.value = true
+  graphResult.value = await runProjectGraphView(expectedGraphVersion)
+  const canvas = graphResult.value.canvas
+  if (canvas) {
+    activeGraphCanvas.value = canvas
+    themeMode.value = canvas.theme === 'warm_light' ? 'warm' : 'dark'
+    canvasGrid.value = canvas.grid
+    graphViewportLabel.value = `${Math.round(canvas.viewport.zoom * 100)}%`
+  } else {
+    activeGraphCanvas.value = undefined
+    selectedGraphNode.value = undefined
+    selectedGraphNodes.value = []
+  }
+  activeInspectorTab.value = graphResult.value.ok ? activeInspectorTab.value : 'tasks'
+  graphLoading.value = false
+}
+
+async function saveCanvasLayout(command: ProjectGraphLayoutSaveCommandDTO) {
+  graphSaving.value = true
+  graphResult.value = await saveProjectGraphLayout(command)
+  const canvas = graphResult.value.canvas
+  if (canvas) {
+    activeGraphCanvas.value = canvas
+    canvasGrid.value = canvas.grid
+    graphViewportLabel.value = `${Math.round(canvas.viewport.zoom * 100)}%`
+  }
+  activeInspectorTab.value = 'tasks'
+  graphSaving.value = false
+}
+
+function saveCurrentCanvasLayout() {
+  graphCanvasRef.value?.saveLayout()
+}
+
+function updateCanvasViewport(viewport: { zoom: number }) {
+  graphViewportLabel.value = `${Math.round(viewport.zoom * 100)}%`
+}
+
+function toggleCanvasGrid() {
+  canvasGrid.value = {
+    ...canvasGrid.value,
+    visible: !canvasGrid.value.visible,
+  }
 }
 </script>
 
@@ -121,7 +204,7 @@ async function runProjectAction(action: ProjectOperationName) {
 
         <section class="top-status" aria-label="Workspace status">
           <Tag color="processing">mock_local</Tag>
-          <Badge status="success" text="Saved 11:37" />
+          <Badge status="success" :text="`Graph ${graphCanvas?.version ?? '-'}`" />
           <Badge status="warning" text="2 queue slots" />
           <Segmented
             v-model:value="themeMode"
@@ -133,8 +216,14 @@ async function runProjectAction(action: ProjectOperationName) {
               { label: 'Warm', value: 'warm' },
             ]"
           />
-          <Tooltip title="Save workspace snapshot">
-            <Button size="small" aria-label="Save workspace snapshot">
+          <Tooltip title="Save Canvas layout">
+            <Button
+              size="small"
+              aria-label="Save Canvas layout"
+              :loading="graphSaving"
+              :disabled="!graphCanvas"
+              @click="saveCurrentCanvasLayout"
+            >
               <template #icon>
                 <SaveOutlined />
               </template>
@@ -229,27 +318,51 @@ async function runProjectAction(action: ProjectOperationName) {
           </Tabs>
         </LayoutSider>
 
-        <LayoutContent class="canvas-shell" aria-label="Project Canvas placeholder">
+        <LayoutContent class="canvas-shell" aria-label="Project Canvas">
           <section class="canvas-toolbar" aria-label="Canvas actions">
             <div>
               <p class="eyebrow">Project Canvas</p>
-              <h2>Creative graph mount point</h2>
+              <h2>{{ graphCanvas?.id || 'Creative graph' }}</h2>
             </div>
             <div class="canvas-actions">
               <Tooltip title="Fit visible nodes">
-                <Button size="small">Fit</Button>
+                <Button size="small" :disabled="!graphCanvas" @click="graphCanvasRef?.fitView()">
+                  Fit
+                </Button>
               </Tooltip>
-              <Tooltip title="Toggle graph links">
-                <Button size="small">
+              <Tooltip title="Toggle Canvas grid">
+                <Button
+                  size="small"
+                  aria-label="Toggle Canvas grid"
+                  :disabled="!graphCanvas"
+                  @click="toggleCanvasGrid"
+                >
                   <template #icon>
-                    <ShareAltOutlined />
+                    <BgColorsOutlined />
                   </template>
                 </Button>
               </Tooltip>
-              <Tooltip title="Run selected placeholder">
-                <Button size="small">
+              <Tooltip title="Move selected node">
+                <Button
+                  size="small"
+                  aria-label="Move selected node"
+                  :disabled="!graphCanvas"
+                  @click="graphCanvasRef?.nudgeSelected()"
+                >
                   <template #icon>
-                    <PlayCircleOutlined />
+                    <ThunderboltOutlined />
+                  </template>
+                </Button>
+              </Tooltip>
+              <Tooltip title="Focus selected node">
+                <Button
+                  size="small"
+                  aria-label="Focus selected node"
+                  :disabled="selectedGraphNodes.length === 0"
+                  @click="graphCanvasRef?.focusSelected()"
+                >
+                  <template #icon>
+                    <ShareAltOutlined />
                   </template>
                 </Button>
               </Tooltip>
@@ -257,35 +370,18 @@ async function runProjectAction(action: ProjectOperationName) {
           </section>
 
           <section class="canvas-stage">
-            <div class="production-frame">
-              <div class="frame-header">
-                <Tag color="blue">ProductionFrame</Tag>
-                <span>Shot context shell</span>
-              </div>
-              <div class="node-lane">
-                <article
-                  v-for="node in canvasNodes"
-                  :key="node.title"
-                  class="canvas-node"
-                  :class="`state-${node.state.replace(' ', '-')}`"
-                >
-                  <div class="node-icon">
-                    <ThunderboltOutlined />
-                  </div>
-                  <div>
-                    <strong :title="node.title">{{ node.title }}</strong>
-                    <span>{{ node.meta }}</span>
-                  </div>
-                </article>
-              </div>
-              <Alert
-                class="canvas-alert"
-                type="info"
-                show-icon
-                message="Canvas renderer intentionally reserved"
-                description="TOO-161 proves the stable workbench zones. Graph rendering, drag, links, and persisted viewport belong to later Canvas issues."
-              />
-            </div>
+            <GraphCanvas
+              ref="graphCanvasRef"
+              :canvas="graphCanvas"
+              :theme="graphTheme"
+              :grid="canvasGrid"
+              :loading="graphLoading"
+              :saving="graphSaving"
+              @save="saveCanvasLayout"
+              @select="(node) => (selectedGraphNode = node)"
+              @selection="(nodes) => (selectedGraphNodes = nodes)"
+              @viewport="updateCanvasViewport"
+            />
           </section>
         </LayoutContent>
 
@@ -293,9 +389,11 @@ async function runProjectAction(action: ProjectOperationName) {
           <section class="inspector-header">
             <div>
               <p class="eyebrow">Inspector</p>
-              <h2>Shot candidate table</h2>
+              <h2>{{ selectedGraphNode?.title || 'Canvas selection' }}</h2>
             </div>
-            <Tag color="warning">context draft</Tag>
+            <Tag :color="selectedGraphNode ? 'processing' : 'default'">
+              {{ selectedGraphNode?.kind || 'none' }}
+            </Tag>
           </section>
 
           <Tabs v-model:activeKey="activeInspectorTab" size="small">
@@ -303,22 +401,38 @@ async function runProjectAction(action: ProjectOperationName) {
               <dl class="property-grid">
                 <div>
                   <dt>Type</dt>
-                  <dd>Canvas placeholder</dd>
+                  <dd>{{ selectedGraphNode?.kind || 'Canvas' }}</dd>
                 </div>
                 <div>
                   <dt>Source</dt>
-                  <dd>Workbench first screen</dd>
+                  <dd>{{ selectedGraphNode?.source || graphCanvas?.projectId || '-' }}</dd>
                 </div>
                 <div>
-                  <dt>Binding</dt>
-                  <dd>No Wails generated import in page components</dd>
+                  <dt>Reference</dt>
+                  <dd>{{ selectedGraphNode?.refId || selectedGraphNode?.status || '-' }}</dd>
+                </div>
+                <div v-if="selectedGraphNode?.badges.length">
+                  <dt>Badges</dt>
+                  <dd>{{ selectedGraphNode.badges.join(', ') }}</dd>
                 </div>
               </dl>
             </TabPane>
             <TabPane key="relations" tab="Relations">
-              <div class="placeholder-list">
-                <strong>Incoming references</strong>
-                <span>Script, Character, Scene and Prop edges arrive after Graph DTO.</span>
+              <List class="queue-list" size="small" :data-source="selectedRelations">
+                <template #renderItem="{ item }">
+                  <ListItem>
+                    <span class="queue-label">
+                      {{ item.sourceNodeId }} -> {{ item.targetNodeId }}
+                    </span>
+                    <Tag :color="item.validity === 'valid' ? 'success' : 'warning'">
+                      {{ item.relation }}
+                    </Tag>
+                  </ListItem>
+                </template>
+              </List>
+              <div v-if="!selectedRelations.length" class="placeholder-list">
+                <strong>No selected relations</strong>
+                <span>{{ selectedGraphNode ? selectedGraphNode.id : 'Canvas' }}</span>
               </div>
             </TabPane>
             <TabPane key="tasks" tab="Tasks">
@@ -392,6 +506,16 @@ async function runProjectAction(action: ProjectOperationName) {
                     </template>
                     Health check
                   </Button>
+                  <Button
+                    size="small"
+                    :loading="graphLoading"
+                    @click="loadProjectGraph()"
+                  >
+                    <template #icon>
+                      <BranchesOutlined />
+                    </template>
+                    Load graph
+                  </Button>
                 </div>
 
                 <Alert
@@ -453,6 +577,26 @@ async function runProjectAction(action: ProjectOperationName) {
                   :message="projectResult.error.userMessage"
                   :description="`${projectResult.error.code} · ${projectResult.error.correlationId}`"
                 />
+                <Alert
+                  v-if="graphResult"
+                  class="service-alert"
+                  :type="canvasHealthType"
+                  show-icon
+                  :message="graphResult.ok ? 'Graph View loaded' : graphResult.error?.userMessage"
+                  :description="graphResult.canvas ? `${graphResult.canvas.nodes.length} nodes · ${graphResult.canvas.edges.length} edges · graph ${graphResult.canvas.version}` : graphResult.error?.code"
+                />
+                <List
+                  v-if="graphErrors.length"
+                  class="recovery-list"
+                  size="small"
+                  :data-source="graphErrors"
+                >
+                  <template #renderItem="{ item }">
+                    <ListItem>
+                      <span>{{ item.code }} · {{ item.userMessage }}</span>
+                    </ListItem>
+                  </template>
+                </List>
                 <List
                   v-if="projectResult?.health?.items.length"
                   class="recovery-list"
@@ -545,20 +689,23 @@ async function runProjectAction(action: ProjectOperationName) {
 
       <footer class="bottom-bar" aria-label="Workbench status">
         <div class="bottom-group">
-          <Badge status="processing" text="Selection: Shot candidate table" />
-          <span>Zoom 100%</span>
-          <span>Grid medium</span>
+          <Badge
+            status="processing"
+            :text="selectedGraphNodes.length > 1 ? `Selection: ${selectedGraphNodes.length} nodes` : `Selection: ${selectedGraphNode?.title || 'Canvas'}`"
+          />
+          <span>Zoom {{ graphViewportLabel }}</span>
+          <span>Grid {{ canvasGrid.visible ? `${canvasGrid.size}px` : 'off' }}</span>
         </div>
         <div class="bottom-group">
-          <Tag color="success">Health clean</Tag>
-          <span>Events {{ runtimeEvents.length }} captured</span>
+          <Tag :color="canvasHealthType">Health {{ graphResult?.health?.status || 'unknown' }}</Tag>
+          <span>Graph events {{ graphResult?.events.length || 0 }}</span>
           <Progress class="queue-progress" :percent="runtimeEvents[0]?.progress ?? 24" size="small" />
         </div>
-        <Button size="small">
+        <Button size="small" :disabled="graphLoading" @click="loadProjectGraph()">
           <template #icon>
             <BgColorsOutlined />
           </template>
-          Restore layout
+          Reload
         </Button>
       </footer>
     </Layout>

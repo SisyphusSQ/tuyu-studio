@@ -275,12 +275,8 @@ func (s *Store) projectGraphView(root string, manifest Manifest, health HealthRe
 			Y:    manifest.Graph.Viewport.Y,
 			Zoom: manifest.Graph.Viewport.Zoom,
 		},
-		Theme: "dark",
-		Grid: CanvasGridDTO{
-			Visible: true,
-			Size:    24,
-			Opacity: 0.24,
-		},
+		Theme:           canvasTheme(manifest.Graph.Theme),
+		Grid:            canvasGrid(manifest.Graph.Grid),
 		Nodes:           nodes,
 		Edges:           edges,
 		Frames:          frames,
@@ -347,9 +343,9 @@ func (s *Store) graphNodeDTO(root string, node Node, index int, issues []HealthI
 		Category:  category,
 		Title:     summary.title,
 		RefID:     dtoRefID,
-		Position:  positionForNode(category, lenByCategoryOffset(index, category)),
-		Size:      sizeForNode(kind),
-		Collapsed: false,
+		Position:  canvasPosition(node.Position, positionForNode(category, lenByCategoryOffset(index, category))),
+		Size:      canvasSize(node.Size, sizeForNode(kind)),
+		Collapsed: canvasCollapsed(node.Collapsed),
 		Status:    strings.TrimSpace(node.Status),
 		Badges:    badges,
 		Source:    summary.source,
@@ -388,6 +384,55 @@ func (s *Store) graphNodeDTO(root string, node Node, index int, issues []HealthI
 	)
 	err.TargetID = dto.ID
 	return dto, &err
+}
+
+func canvasTheme(raw string) string {
+	switch strings.TrimSpace(raw) {
+	case "warm_light":
+		return "warm_light"
+	default:
+		return "dark"
+	}
+}
+
+func canvasGrid(grid *GraphGrid) CanvasGridDTO {
+	dto := CanvasGridDTO{
+		Visible: true,
+		Size:    24,
+		Opacity: 0.24,
+	}
+	if grid == nil {
+		return dto
+	}
+	dto.Visible = grid.Visible
+	if grid.Size > 0 {
+		dto.Size = grid.Size
+	}
+	if grid.Opacity >= 0 && grid.Opacity <= 1 {
+		dto.Opacity = grid.Opacity
+	}
+	return dto
+}
+
+func canvasPosition(position *GraphPosition, fallback CanvasPositionDTO) CanvasPositionDTO {
+	if position == nil {
+		return fallback
+	}
+	return CanvasPositionDTO{X: position.X, Y: position.Y}
+}
+
+func canvasSize(size *GraphSize, fallback CanvasSizeDTO) CanvasSizeDTO {
+	if size == nil || size.Width <= 0 || size.Height <= 0 {
+		return fallback
+	}
+	return CanvasSizeDTO{Width: size.Width, Height: size.Height}
+}
+
+func canvasCollapsed(collapsed *bool) bool {
+	if collapsed == nil {
+		return false
+	}
+	return *collapsed
 }
 
 func (s *Store) promptRunEndpointError(edge Edge, promptRunNodeIDs map[string]struct{}, correlationID string) *OperationError {

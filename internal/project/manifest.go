@@ -59,17 +59,22 @@ type Integrity struct {
 }
 
 type Graph struct {
-	Version  int      `json:"version"`
-	Nodes    []Node   `json:"nodes"`
-	Edges    []Edge   `json:"edges"`
-	Viewport Viewport `json:"viewport"`
+	Version  int        `json:"version"`
+	Nodes    []Node     `json:"nodes"`
+	Edges    []Edge     `json:"edges"`
+	Viewport Viewport   `json:"viewport"`
+	Theme    string     `json:"theme,omitempty"`
+	Grid     *GraphGrid `json:"grid,omitempty"`
 }
 
 type Node struct {
-	ID     string `json:"id,omitempty"`
-	Kind   string `json:"kind,omitempty"`
-	RefID  string `json:"refId,omitempty"`
-	Status string `json:"status,omitempty"`
+	ID        string         `json:"id,omitempty"`
+	Kind      string         `json:"kind,omitempty"`
+	RefID     string         `json:"refId,omitempty"`
+	Status    string         `json:"status,omitempty"`
+	Position  *GraphPosition `json:"position,omitempty"`
+	Size      *GraphSize     `json:"size,omitempty"`
+	Collapsed *bool          `json:"collapsed,omitempty"`
 }
 
 type Edge struct {
@@ -83,6 +88,22 @@ type Viewport struct {
 	X    int     `json:"x"`
 	Y    int     `json:"y"`
 	Zoom float64 `json:"zoom"`
+}
+
+type GraphGrid struct {
+	Visible bool    `json:"visible"`
+	Size    int     `json:"size"`
+	Opacity float64 `json:"opacity"`
+}
+
+type GraphPosition struct {
+	X int `json:"x"`
+	Y int `json:"y"`
+}
+
+type GraphSize struct {
+	Width  int `json:"width"`
+	Height int `json:"height"`
 }
 
 type Principles struct {

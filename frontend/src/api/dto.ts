@@ -107,6 +107,23 @@ export interface ProjectGraphViewCommandDTO {
   correlationId: string
 }
 
+export interface ProjectGraphNodeLayoutCommandDTO {
+  id: string
+  position: CanvasPositionDTO
+  size?: CanvasSizeDTO
+  collapsed: boolean
+}
+
+export interface ProjectGraphLayoutSaveCommandDTO {
+  root: string
+  expectedGraphVersion: number
+  viewport: CanvasViewportDTO
+  theme: CanvasTheme
+  grid: CanvasGridDTO
+  nodes: ProjectGraphNodeLayoutCommandDTO[]
+  correlationId: string
+}
+
 export interface CanvasViewportDTO {
   x: number
   y: number

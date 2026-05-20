@@ -7,6 +7,8 @@ export function AppInfo():Promise<shell.Info>;
 
 export function ProjectCreate(arg1:project.CreateProjectCommand):Promise<project.OperationResult>;
 
+export function ProjectGraphLayoutSave(arg1:project.SaveGraphLayoutCommand):Promise<project.GraphViewResult>;
+
 export function ProjectGraphView(arg1:project.GraphViewCommand):Promise<project.GraphViewResult>;
 
 export function ProjectHealth(arg1:project.CheckProjectHealthCommand):Promise<project.OperationResult>;

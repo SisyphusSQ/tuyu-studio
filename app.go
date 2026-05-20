@@ -53,3 +53,7 @@ func (a *App) ProjectHealth(command project.CheckProjectHealthCommand) project.O
 func (a *App) ProjectGraphView(command project.GraphViewCommand) project.GraphViewResult {
 	return a.service.ProjectGraphView(command)
 }
+
+func (a *App) ProjectGraphLayoutSave(command project.SaveGraphLayoutCommand) project.GraphViewResult {
+	return a.service.ProjectGraphLayoutSave(command)
+}
