@@ -22,13 +22,24 @@ Useful commands:
 make harness-verify
 go test ./...
 npm --prefix frontend install
+npm --prefix frontend run typecheck
+npm --prefix frontend run test:unit
 npm --prefix frontend run build
 make desktop-shell-build
+make alpha-shell-verify
 ```
 
 `make desktop-shell-build` runs the pinned Wails CLI module with `go run github.com/wailsapp/wails/v2/cmd/wails@v2.12.0 build -clean`.
 
-The local build output remains ignored. See `docs/test/desktop-shell.md` for the smoke runbook.
+`make alpha-shell-verify` runs the reusable Alpha shell gate: harness, Go tests, frontend typecheck/unit/build, Wails build, build artifact checks, generated binding boundary checks, and worktree whitespace checks, including untracked text files not ignored by Git.
+
+For a macOS GUI launch smoke, run:
+
+```bash
+make alpha-shell-smoke-launch
+```
+
+The local build output remains ignored. See `docs/test/desktop-shell.md`, `docs/test/workbench-first-screen.md`, `docs/test/api-wrapper-dto.md`, and `docs/test/alpha-shell-smoke.md` for the current smoke runbooks.
 
 ## 推荐阅读顺序
 
