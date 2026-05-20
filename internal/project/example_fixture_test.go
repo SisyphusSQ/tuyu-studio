@@ -48,6 +48,96 @@ func TestExampleAlphaProjectHealthCheck(t *testing.T) {
 	}
 }
 
+func TestExampleAlphaProjectCanvasReopenSmoke(t *testing.T) {
+	root := copyExampleFixture(t)
+	store := testStore(time.Date(2026, 5, 20, 8, 20, 0, 0, time.UTC), "fixture-canvas-open")
+
+	opened := store.OpenProject(OpenProjectCommand{
+		Root:          root,
+		CorrelationID: "fixture-canvas-open",
+	})
+	if !opened.OK || opened.Summary == nil {
+		t.Fatalf("OpenProject() = %#v, want open fixture", opened)
+	}
+	if opened.Summary.OpenMode != OpenModeReadWrite {
+		t.Fatalf("OpenMode = %q, want %s", opened.Summary.OpenMode, OpenModeReadWrite)
+	}
+	if opened.Health == nil || opened.Health.HasBlocking() {
+		t.Fatalf("open health = %#v, want no blocking items", opened.Health)
+	}
+
+	initial := store.GraphView(GraphViewCommand{
+		Root:          root,
+		CorrelationID: "fixture-canvas-view",
+	})
+	if !initial.OK || initial.Canvas == nil {
+		t.Fatalf("GraphView() = %#v, want initial Canvas", initial)
+	}
+	requireAlphaCanvasDisplay(t, *initial.Canvas)
+
+	saved := store.SaveGraphLayout(SaveGraphLayoutCommand{
+		Root:                 root,
+		ExpectedGraphVersion: initial.Canvas.Version,
+		Viewport:             CanvasViewportDTO{X: -144, Y: 96, Zoom: 1.35},
+		Theme:                "warm_light",
+		Grid:                 CanvasGridDTO{Visible: false, Size: 32, Opacity: 0.16},
+		Nodes: []GraphNodeLayoutCommand{
+			{
+				ID:        "node_shot_001",
+				Position:  CanvasPositionDTO{X: 812, Y: 264},
+				Size:      CanvasSizeDTO{Width: 276, Height: 136},
+				Collapsed: false,
+			},
+		},
+		CorrelationID: "fixture-canvas-save",
+	})
+	if !saved.OK || saved.Canvas == nil {
+		t.Fatalf("SaveGraphLayout() = %#v, want saved Canvas", saved)
+	}
+
+	reopenedStore := testStore(time.Date(2026, 5, 20, 8, 22, 0, 0, time.UTC), "fixture-canvas-reopen")
+	reopened := reopenedStore.OpenProject(OpenProjectCommand{
+		Root:          root,
+		Takeover:      true,
+		CorrelationID: "fixture-canvas-reopen",
+	})
+	if !reopened.OK || reopened.Summary == nil {
+		t.Fatalf("reopen OpenProject() = %#v, want reopened fixture", reopened)
+	}
+	if reopened.Summary.GraphVersion != initial.Canvas.Version+1 {
+		t.Fatalf("reopened graph version = %d, want %d", reopened.Summary.GraphVersion, initial.Canvas.Version+1)
+	}
+
+	restored := reopenedStore.GraphView(GraphViewCommand{
+		Root:          root,
+		CorrelationID: "fixture-canvas-restored",
+	})
+	if !restored.OK || restored.Canvas == nil {
+		t.Fatalf("reopened GraphView() = %#v, want restored Canvas", restored)
+	}
+	requireAlphaCanvasDisplay(t, *restored.Canvas)
+	if restored.Canvas.Version != initial.Canvas.Version+1 {
+		t.Fatalf("restored canvas version = %d, want %d", restored.Canvas.Version, initial.Canvas.Version+1)
+	}
+	if restored.Canvas.Theme != "warm_light" {
+		t.Fatalf("restored theme = %q, want warm_light", restored.Canvas.Theme)
+	}
+	if restored.Canvas.Grid.Visible || restored.Canvas.Grid.Size != 32 || restored.Canvas.Grid.Opacity != 0.16 {
+		t.Fatalf("restored grid = %#v, want saved grid", restored.Canvas.Grid)
+	}
+	if restored.Canvas.Viewport.X != -144 || restored.Canvas.Viewport.Y != 96 || restored.Canvas.Viewport.Zoom != 1.35 {
+		t.Fatalf("restored viewport = %#v, want saved viewport", restored.Canvas.Viewport)
+	}
+
+	shot := requireNode(t, restored.Canvas.Nodes, "node_shot_001", "shot", "production", "Mina reaches the stall shelter")
+	if shot.Position.X != 812 || shot.Position.Y != 264 {
+		t.Fatalf("restored shot position = %#v, want saved position", shot.Position)
+	}
+	if shot.Size.Width != 276 || shot.Size.Height != 136 {
+		t.Fatalf("restored shot size = %#v, want saved size", shot.Size)
+	}
+}
+
 func TestExampleAlphaProjectPaths(t *testing.T) {
 	root := exampleFixtureRoot(t)
 
@@ -78,6 +168,55 @@ func TestExampleAlphaProjectPaths(t *testing.T) {
 	assertFixtureJSONFilesParse(t, root)
 	assertFixtureDigestIndex(t, root)
 	assertFixtureHasNoSensitivePatterns(t, root)
+}
+
+func requireAlphaCanvasDisplay(t *testing.T, canvas ProjectCanvasDTO) {
+	t.Helper()
+
+	if canvas.ID == "" || canvas.ProjectID != "proj_alpha_fixture" {
+		t.Fatalf("canvas id/project = %q/%q, want alpha fixture Canvas", canvas.ID, canvas.ProjectID)
+	}
+	if len(canvas.Nodes) < 8 {
+		t.Fatalf("canvas nodes = %d, want projected alpha fixture nodes", len(canvas.Nodes))
+	}
+	if len(canvas.Edges) < 6 {
+		t.Fatalf("canvas edges = %d, want projected alpha fixture relations", len(canvas.Edges))
+	}
+	if len(canvas.ReferenceGroups) != 1 {
+		t.Fatalf("reference groups = %d, want 1", len(canvas.ReferenceGroups))
+	}
+	if len(canvas.Frames) != 1 {
+		t.Fatalf("frames = %d, want 1", len(canvas.Frames))
+	}
+
+	script := requireNode(t, canvas.Nodes, "node_script_source", "script", "source", "Script Source")
+	if !containsString(script.Badges, "context_ready") {
+		t.Fatalf("script badges = %#v, want context_ready", script.Badges)
+	}
+	shot := requireNode(t, canvas.Nodes, "node_shot_001", "shot", "production", "Mina reaches the stall shelter")
+	if !containsString(shot.Badges, "context_dirty") {
+		t.Fatalf("shot badges = %#v, want context_dirty", shot.Badges)
+	}
+	packageNode := requireNode(t, canvas.Nodes, "node_package_001", "package", "handoff", "Package pkg_scene001_shot001")
+	if !containsString(packageNode.Badges, "package_ready") {
+		t.Fatalf("package badges = %#v, want package_ready", packageNode.Badges)
+	}
+	review := requireNode(t, canvas.Nodes, "node_review_001", "note", "review", "Review note review_stub_001")
+	if !containsString(review.Badges, "pending_review") {
+		t.Fatalf("review badges = %#v, want pending_review", review.Badges)
+	}
+
+	for _, edge := range canvas.Edges {
+		if edge.Validity != GraphEdgeValidityValid {
+			t.Fatalf("edge %q validity = %q error=%#v, want valid", edge.ID, edge.Validity, edge.Error)
+		}
+	}
+	if len(canvas.Frames[0].OutputNodeIDs) < 3 {
+		t.Fatalf("frame outputs = %#v, want package/result/review outputs", canvas.Frames[0].OutputNodeIDs)
+	}
+	if len(canvas.ReferenceGroups[0].InputNodeIDs) < 4 {
+		t.Fatalf("reference group inputs = %#v, want script/context inputs", canvas.ReferenceGroups[0].InputNodeIDs)
+	}
 }
 
 func assertFixtureCoverage(t *testing.T, root string) {
