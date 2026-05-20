@@ -109,6 +109,9 @@ func (s *Service) Info() Info {
 			"project_graph_layout_save",
 			"project_asset_import",
 			"project_asset_list",
+			"project_asset_binding_list",
+			"project_asset_bind",
+			"project_main_reference_set",
 		},
 	}
 }
@@ -167,6 +170,21 @@ func (s *Service) ProjectAssetImport(command project.ImportAssetCommand) project
 func (s *Service) ProjectAssetsList(command project.ListAssetsCommand) project.AssetLibraryResult {
 	command.Root = s.projectRoot(command.Root)
 	return s.projectStore.ListAssets(command)
+}
+
+func (s *Service) ProjectAssetBindingsList(command project.ListAssetBindingsCommand) project.ContinuityLibraryResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.ListAssetBindings(command)
+}
+
+func (s *Service) ProjectAssetBind(command project.BindAssetCommand) project.ContinuityLibraryResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.BindAsset(command)
+}
+
+func (s *Service) ProjectMainReferenceSet(command project.SetMainReferenceCommand) project.ContinuityLibraryResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.SetMainReference(command)
 }
 
 func (s *Service) ProjectScriptDocumentSave(command project.SaveScriptDocumentCommand) project.ScriptDocumentResult {

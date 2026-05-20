@@ -1,0 +1,131 @@
+{
+  "projectId": "proj_alpha_fixture",
+  "assets": [
+    {
+      "id": "asset_ref_character_mina",
+      "projectId": "proj_alpha_fixture",
+      "type": "text",
+      "role": "character_ref",
+      "relativePath": "assets/refs/character-mina.txt",
+      "originalName": "character-mina.txt",
+      "mimeType": "text/plain",
+      "sizeBytes": 118,
+      "digest": "9dde6b0e39dfc2c43cd792b357133bb603b60ea37f8a8b11c730b6c0541146ed",
+      "source": {
+        "kind": "imported_file",
+        "originalName": "character-mina.txt",
+        "importedAt": "2026-05-20T05:40:00Z"
+      },
+      "bindings": [
+        {
+          "id": "binding_asset_ref_character_mina_character_char_mina_reference",
+          "assetId": "asset_ref_character_mina",
+          "targetType": "character",
+          "targetId": "char_mina",
+          "purpose": "reference",
+          "locked": false,
+          "createdBy": "fixture",
+          "createdAt": "2026-05-20T05:40:00Z"
+        },
+        {
+          "id": "binding_asset_ref_character_mina_character_char_mina_main_reference",
+          "assetId": "asset_ref_character_mina",
+          "targetType": "character",
+          "targetId": "char_mina",
+          "purpose": "main_reference",
+          "locked": false,
+          "createdBy": "fixture",
+          "createdAt": "2026-05-20T05:40:00Z"
+        }
+      ],
+      "thumbnailPath": "assets/thumbnails/thumb-character-mina.txt",
+      "thumbnailStatus": "placeholder",
+      "createdAt": "2026-05-20T05:40:00Z",
+      "updatedAt": "2026-05-20T05:40:00Z"
+    },
+    {
+      "id": "asset_ref_prop_red_lantern",
+      "projectId": "proj_alpha_fixture",
+      "type": "text",
+      "role": "prop_ref",
+      "relativePath": "assets/refs/prop-red-lantern.txt",
+      "originalName": "prop-red-lantern.txt",
+      "mimeType": "text/plain",
+      "sizeBytes": 89,
+      "digest": "91dbafa70640b54348fdc6465a16aa5dfce63c81b278417ca45eff53a242f0d5",
+      "source": {
+        "kind": "imported_file",
+        "originalName": "prop-red-lantern.txt",
+        "importedAt": "2026-05-20T05:40:00Z"
+      },
+      "bindings": [
+        {
+          "id": "binding_asset_ref_prop_red_lantern_prop_prop_red_lantern_reference",
+          "assetId": "asset_ref_prop_red_lantern",
+          "targetType": "prop",
+          "targetId": "prop_red_lantern",
+          "purpose": "reference",
+          "locked": false,
+          "createdBy": "fixture",
+          "createdAt": "2026-05-20T05:40:00Z"
+        },
+        {
+          "id": "binding_asset_ref_prop_red_lantern_prop_prop_red_lantern_main_reference",
+          "assetId": "asset_ref_prop_red_lantern",
+          "targetType": "prop",
+          "targetId": "prop_red_lantern",
+          "purpose": "main_reference",
+          "locked": false,
+          "createdBy": "fixture",
+          "createdAt": "2026-05-20T05:40:00Z"
+        }
+      ],
+      "thumbnailStatus": "none",
+      "createdAt": "2026-05-20T05:40:00Z",
+      "updatedAt": "2026-05-20T05:40:00Z"
+    },
+    {
+      "id": "asset_ref_scene_laneway_market",
+      "projectId": "proj_alpha_fixture",
+      "type": "text",
+      "role": "scene_ref",
+      "relativePath": "assets/refs/scene-laneway-market.txt",
+      "originalName": "scene-laneway-market.txt",
+      "mimeType": "text/plain",
+      "sizeBytes": 121,
+      "digest": "90894f272bc4db26c2bb8340935a0632082b84134d42f2044a45fe2b18344d7d",
+      "source": {
+        "kind": "imported_file",
+        "originalName": "scene-laneway-market.txt",
+        "importedAt": "2026-05-20T05:40:00Z"
+      },
+      "bindings": [
+        {
+          "id": "binding_asset_ref_scene_laneway_market_scene_scene_laneway_market_reference",
+          "assetId": "asset_ref_scene_laneway_market",
+          "targetType": "scene",
+          "targetId": "scene_laneway_market",
+          "purpose": "reference",
+          "locked": false,
+          "createdBy": "fixture",
+          "createdAt": "2026-05-20T05:40:00Z"
+        },
+        {
+          "id": "binding_asset_ref_scene_laneway_market_scene_scene_laneway_market_main_reference",
+          "assetId": "asset_ref_scene_laneway_market",
+          "targetType": "scene",
+          "targetId": "scene_laneway_market",
+          "purpose": "main_reference",
+          "locked": false,
+          "createdBy": "fixture",
+          "createdAt": "2026-05-20T05:40:00Z"
+        }
+      ],
+      "thumbnailPath": "assets/thumbnails/thumb-scene-laneway-market.txt",
+      "thumbnailStatus": "placeholder",
+      "createdAt": "2026-05-20T05:40:00Z",
+      "updatedAt": "2026-05-20T05:40:00Z"
+    }
+  ],
+  "updatedAt": "2026-05-20T05:40:00Z"
+}

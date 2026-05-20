@@ -33,12 +33,16 @@ import { computed, h, onMounted, ref } from 'vue'
 
 import {
   type AppErrorDTO,
+  type AssetBindingDuplicatePolicy,
+  type AssetBindingTargetType,
   type AssetDTO,
   type AssetDuplicatePolicy,
   type AssetLibraryResultDTO,
   type CanvasGridDTO,
   type CanvasTheme,
+  type ContinuityLibraryResultDTO,
   type GraphNodeDTO,
+  type ProfileDTO,
   type ProjectCanvasDTO,
   type ProjectGraphLayoutSaveCommandDTO,
   type ProjectGraphViewResultDTO,
@@ -59,6 +63,14 @@ import {
   importAsset,
   listAssets,
 } from './api/assets'
+import {
+  bindAsset,
+  DEFAULT_BINDING_PURPOSE,
+  DEFAULT_BINDING_TARGET_ID,
+  DEFAULT_BINDING_TARGET_TYPE,
+  listAssetBindings,
+  setMainReference,
+} from './api/assetBindings'
 import {
   DEFAULT_SCRIPT_DOCUMENT_ID,
   DEFAULT_SCRIPT_SOURCE_ASSET_ID,
@@ -130,6 +142,17 @@ const assetImportPath = ref(DEFAULT_ASSET_IMPORT_SOURCE)
 const assetImportRole = ref(DEFAULT_ASSET_IMPORT_ROLE)
 const assetDuplicatePolicy = ref<AssetDuplicatePolicy>('cancel')
 const assetManagedReference = ref(false)
+const bindingResult = ref<ContinuityLibraryResultDTO>()
+const bindingLoading = ref(false)
+const bindingSubmitting = ref(false)
+const mainReferenceSaving = ref(false)
+const bindingAssetId = ref('')
+const bindingTargetType = ref<AssetBindingTargetType>(DEFAULT_BINDING_TARGET_TYPE)
+const bindingTargetId = ref(DEFAULT_BINDING_TARGET_ID)
+const bindingPurpose = ref(DEFAULT_BINDING_PURPOSE)
+const bindingDuplicatePolicy = ref<AssetBindingDuplicatePolicy>('cancel')
+const mainReferenceAssetId = ref('')
+const mainReferenceClear = ref(false)
 const scriptDocument = ref<ScriptDocumentDTO>()
 const scriptResult = ref<ScriptDocumentResultDTO>()
 const scriptTitle = ref('Alpha Script')
@@ -190,6 +213,9 @@ const assetSummary = computed(() => {
   return `${assetRows.value.length} assets · ${missing} missing · ${managed} managed`
 })
 const assetRecoveryActions = computed(() => assetResult.value?.error?.recoveryActions || [])
+const continuityProfiles = computed(() => bindingResult.value?.profiles || [])
+const continuityLineage = computed(() => bindingResult.value?.lineage || [])
+const bindingRecoveryActions = computed(() => bindingResult.value?.error?.recoveryActions || [])
 const assetStatusType = computed(() => {
   if (assetResult.value?.error?.severity === 'blocking' || assetResult.value?.error?.severity === 'error') {
     return 'error'
@@ -200,15 +226,31 @@ const assetStatusType = computed(() => {
   return assetResult.value?.ok ? 'success' : 'info'
 })
 const assetEventLabel = computed(() => latestEventSummary([], assetResult.value?.events || [], []))
+const bindingSummary = computed(() => {
+  const mainReferences = continuityProfiles.value.filter((profile) => profile.mainReferenceAssetId).length
+  return `${continuityProfiles.value.length} profiles · ${continuityLineage.value.length} lineage rows · ${mainReferences} main refs`
+})
+const bindingStatusType = computed(() => {
+  if (bindingResult.value?.error?.severity === 'blocking' || bindingResult.value?.error?.severity === 'error') {
+    return 'error'
+  }
+  if (bindingResult.value?.error || continuityProfiles.value.some((profile) => profile.missingMainReference)) {
+    return 'warning'
+  }
+  return bindingResult.value?.ok ? 'success' : 'info'
+})
+const bindingEventLabel = computed(() => latestEventSummary([], bindingResult.value?.events || [], []))
 const operationalEvents = computed(() => [
   ...(projectResult.value?.events || []),
   ...(assetResult.value?.events || []),
+  ...(bindingResult.value?.events || []),
   ...(scriptResult.value?.events || []),
   ...(sceneResult.value?.events || []),
 ])
 const auditHealthItems = computed(() => [
   ...(projectResult.value?.health?.items || []),
   ...(assetResult.value?.health?.items || []),
+  ...(bindingResult.value?.health?.items || []),
 ])
 const graphTheme = computed<CanvasTheme>(() => themeMode.value === 'warm' ? 'warm_light' : 'dark')
 const selectedGraphNodeIDs = computed(() => selectedGraphNodes.value.length > 0
@@ -225,6 +267,7 @@ const visibleErrors = computed(() => [
   graphResult.value?.error,
   projectResult.value?.error,
   assetResult.value?.error,
+  bindingResult.value?.error,
   scriptResult.value?.error,
   sceneResult.value?.error,
   shotContextResult.value?.error,
@@ -235,6 +278,7 @@ const healthStatus = computed(() => highestHealthStatus([
   graphResult.value?.health,
   projectResult.value?.health,
   assetResult.value?.health,
+  bindingResult.value?.health,
 ], visibleErrors.value))
 const healthStatusTone = computed(() => healthTone(healthStatus.value))
 const errorSummary = computed(() => firstErrorSummary([
@@ -245,6 +289,7 @@ const latestEventLabel = computed(() => latestEventSummary(
   [
     ...(projectResult.value?.events || []),
     ...(assetResult.value?.events || []),
+    ...(bindingResult.value?.events || []),
     ...(scriptResult.value?.events || []),
     ...(sceneResult.value?.events || []),
     ...(shotContextResult.value?.events || []),
@@ -342,10 +387,12 @@ async function loadAssetRows() {
   assetLoading.value = true
   assetResult.value = await listAssets()
   assetRows.value = assetResult.value.assets
+  synchronizeBindingDefaults()
   if (!assetResult.value.ok) {
     activeInspectorTab.value = 'tasks'
   }
   assetLoading.value = false
+  await loadCurrentAssetBindings(false)
 }
 
 async function importCurrentAsset() {
@@ -360,8 +407,65 @@ async function importCurrentAsset() {
   assetRows.value = assetResult.value.ok || assetResult.value.assets.length > 0
     ? assetResult.value.assets
     : previousRows
+  synchronizeBindingDefaults()
   activeInspectorTab.value = 'tasks'
+  if (assetResult.value.ok) {
+    await loadCurrentAssetBindings(false)
+  }
   assetImporting.value = false
+}
+
+async function loadCurrentAssetBindings(revealTasks = true) {
+  bindingLoading.value = true
+  bindingResult.value = await listAssetBindings()
+  ingestContinuityResult(bindingResult.value)
+  if (revealTasks) {
+    activeInspectorTab.value = 'tasks'
+  }
+  bindingLoading.value = false
+}
+
+async function bindCurrentAsset() {
+  bindingSubmitting.value = true
+  bindingResult.value = await bindAsset({
+    assetId: bindingAssetId.value,
+    targetType: bindingTargetType.value,
+    targetId: bindingTargetId.value,
+    purpose: bindingPurpose.value,
+    duplicatePolicy: bindingDuplicatePolicy.value,
+  })
+  ingestContinuityResult(bindingResult.value)
+  if (bindingResult.value.ok) {
+    await loadProjectGraph()
+  } else {
+    activeInspectorTab.value = 'tasks'
+  }
+  bindingSubmitting.value = false
+}
+
+async function setCurrentMainReference() {
+  mainReferenceSaving.value = true
+  bindingResult.value = await setMainReference({
+    assetId: mainReferenceAssetId.value || bindingAssetId.value,
+    targetType: bindingTargetType.value,
+    targetId: bindingTargetId.value,
+    clear: mainReferenceClear.value,
+  })
+  ingestContinuityResult(bindingResult.value)
+  if (bindingResult.value.ok) {
+    mainReferenceClear.value = false
+    await loadProjectGraph()
+  } else {
+    activeInspectorTab.value = 'tasks'
+  }
+  mainReferenceSaving.value = false
+}
+
+function ingestContinuityResult(result: ContinuityLibraryResultDTO) {
+  if (result.assets.length) {
+    assetRows.value = result.assets
+  }
+  synchronizeBindingDefaults(result)
 }
 
 async function runProbe(mode: WorkbenchProbeMode) {
@@ -665,6 +769,67 @@ function assetDetailText(asset: AssetDTO): string {
   ].join(' · ')
 }
 
+function synchronizeBindingDefaults(result?: ContinuityLibraryResultDTO) {
+  const assets = result?.assets.length ? result.assets : assetRows.value
+  const profiles = result?.profiles || continuityProfiles.value
+  const selectedAssetExists = assets.some((asset) => asset.id === bindingAssetId.value)
+  const selectedMainAssetExists = assets.some((asset) => asset.id === mainReferenceAssetId.value)
+  const firstAssetId = assets[0]?.id
+
+  if (firstAssetId && (!bindingAssetId.value || !selectedAssetExists)) {
+    bindingAssetId.value = firstAssetId
+  }
+  if (firstAssetId && (!mainReferenceAssetId.value || !selectedMainAssetExists)) {
+    mainReferenceAssetId.value = firstAssetId
+  }
+
+  const selectedProfileExists = profiles.some((profile) => (
+    profile.type === bindingTargetType.value && profile.id === bindingTargetId.value
+  ))
+  const firstProfile = profiles[0]
+  if (firstProfile && (!bindingTargetId.value || !selectedProfileExists)) {
+    bindingTargetType.value = normalizeBindingTargetType(firstProfile.type)
+    bindingTargetId.value = firstProfile.id
+  }
+}
+
+function normalizeBindingTargetType(value: string): AssetBindingTargetType {
+  return value === 'scene' || value === 'prop' ? value : 'character'
+}
+
+function profileTone(profile: ProfileDTO): string {
+  if (profile.missingMainReference) {
+    return 'warning'
+  }
+  if (profile.mainReferenceAssetId) {
+    return 'success'
+  }
+  return 'default'
+}
+
+function profileDetailText(profile: ProfileDTO): string {
+  return [
+    profile.relativePath || profile.type,
+    `${profile.referenceAssetIds.length} refs`,
+    `${profile.bindingCount} bindings`,
+  ].join(' · ')
+}
+
+function profileMainReferenceText(profile: ProfileDTO): string {
+  return profile.mainReferenceAssetId
+    ? `${profile.mainReferenceAssetId} · ${profile.mainReferencePath || 'asset index'}`
+    : 'No main reference'
+}
+
+function lineageDetailText(assetId: string): string {
+  const lineage = continuityLineage.value.find((item) => item.assetId === assetId)
+  if (!lineage) {
+    return 'No lineage row loaded'
+  }
+  const targets = lineage.targetSummaries.map((target) => `${target.targetType}:${target.targetId}`)
+  return targets.length ? targets.join(', ') : 'No targets'
+}
+
 function shotIDFromNode(node: GraphNodeDTO | undefined): string {
   const refId = node?.kind === 'shot' ? node.refId || '' : ''
   const filename = refId.split('/').pop() || ''
@@ -695,7 +860,7 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
           </Tag>
           <Badge :status="graphCanvas ? 'success' : 'default'" :text="`Graph ${graphCanvas?.version ?? '-'}`" />
           <Tag :color="healthStatusTone">Health {{ healthStatus }}</Tag>
-          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0) + (assetResult?.events.length || 0) + (scriptResult?.events.length || 0) + (sceneResult?.events.length || 0)}`" />
+          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0) + (assetResult?.events.length || 0) + (bindingResult?.events.length || 0) + (scriptResult?.events.length || 0) + (sceneResult?.events.length || 0)}`" />
           <Segmented
             v-model:value="themeMode"
             class="theme-switch"
@@ -817,6 +982,130 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
                   </ListItem>
                 </template>
               </List>
+              <div class="binding-panel">
+                <div class="script-editor-bar">
+                  <Tag :color="bindingStatusType">Continuity</Tag>
+                  <Tag>{{ bindingSummary }}</Tag>
+                </div>
+                <div class="asset-import-grid">
+                  <label class="script-field">
+                    <span>Asset id</span>
+                    <input
+                      v-model="bindingAssetId"
+                      class="script-input"
+                      type="text"
+                      autocomplete="off"
+                    >
+                  </label>
+                  <label class="script-field">
+                    <span>Target</span>
+                    <select v-model="bindingTargetType" class="script-input">
+                      <option value="character">Character</option>
+                      <option value="scene">Scene</option>
+                      <option value="prop">Prop</option>
+                    </select>
+                  </label>
+                </div>
+                <label class="script-field">
+                  <span>Target id</span>
+                  <input
+                    v-model="bindingTargetId"
+                    class="script-input"
+                    type="text"
+                    autocomplete="off"
+                  >
+                </label>
+                <div class="asset-import-grid">
+                  <label class="script-field">
+                    <span>Purpose</span>
+                    <select
+                      v-model="bindingPurpose"
+                      class="script-input"
+                    >
+                      <option value="reference">Reference</option>
+                      <option value="identity">Identity</option>
+                      <option value="style">Style</option>
+                      <option value="detail">Detail</option>
+                    </select>
+                  </label>
+                  <label class="script-field">
+                    <span>Duplicate</span>
+                    <select v-model="bindingDuplicatePolicy" class="script-input">
+                      <option value="cancel">Cancel</option>
+                      <option value="reuse">Reuse</option>
+                    </select>
+                  </label>
+                </div>
+                <label class="script-field">
+                  <span>Main ref asset</span>
+                  <input
+                    v-model="mainReferenceAssetId"
+                    class="script-input"
+                    type="text"
+                    autocomplete="off"
+                  >
+                </label>
+                <label class="check-row">
+                  <input v-model="mainReferenceClear" type="checkbox">
+                  <span>Clear main reference</span>
+                </label>
+                <div class="rail-toolbar">
+                  <Button size="small" :loading="bindingLoading" @click="loadCurrentAssetBindings()">
+                    <template #icon>
+                      <ReloadOutlined />
+                    </template>
+                    Bindings
+                  </Button>
+                  <Button size="small" type="primary" :loading="bindingSubmitting" :disabled="!bindingAssetId.trim() || !bindingTargetId.trim()" @click="bindCurrentAsset">
+                    <template #icon>
+                      <BranchesOutlined />
+                    </template>
+                    Bind
+                  </Button>
+                  <Button size="small" :loading="mainReferenceSaving" :disabled="!bindingTargetId.trim() || (!mainReferenceClear && !mainReferenceAssetId.trim())" @click="setCurrentMainReference">
+                    <template #icon>
+                      <ShareAltOutlined />
+                    </template>
+                    Main ref
+                  </Button>
+                </div>
+              </div>
+              <Alert
+                v-if="bindingResult"
+                class="service-alert"
+                :type="bindingStatusType"
+                show-icon
+                :message="bindingResult.error?.userMessage || bindingSummary"
+                :description="bindingResult.duplicate ? `duplicate ${bindingResult.duplicate.id || bindingResult.duplicate.assetId}` : bindingEventLabel"
+              />
+              <List
+                v-if="bindingRecoveryActions.length"
+                class="recovery-list"
+                size="small"
+                :data-source="bindingRecoveryActions"
+              >
+                <template #renderItem="{ item }">
+                  <ListItem>
+                    <span>{{ item }}</span>
+                  </ListItem>
+                </template>
+              </List>
+              <List v-if="continuityProfiles.length" class="profile-list" item-layout="horizontal" size="small" :data-source="continuityProfiles">
+                <template #renderItem="{ item }">
+                  <ListItem>
+                    <ListItemMeta>
+                      <template #title>
+                        <strong class="asset-title" :title="item.relativePath">{{ item.name || item.id }}</strong>
+                      </template>
+                      <template #description>
+                        <span class="asset-status">{{ item.type }} · {{ profileDetailText(item) }}</span>
+                        <span class="asset-status">{{ profileMainReferenceText(item) }}</span>
+                      </template>
+                    </ListItemMeta>
+                    <Tag :color="profileTone(item)">{{ item.mainReferenceAssetId ? 'main' : 'empty' }}</Tag>
+                  </ListItem>
+                </template>
+              </List>
               <List class="asset-list" item-layout="horizontal" size="small" :data-source="assetRows">
                 <template #renderItem="{ item }">
                   <ListItem>
@@ -830,6 +1119,7 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
                       <template #description>
                         <span class="asset-status">{{ assetStatusText(item) }}</span>
                         <span class="asset-status">{{ assetDetailText(item) }}</span>
+                        <span class="asset-status">{{ lineageDetailText(item.id) }}</span>
                       </template>
                     </ListItemMeta>
                     <Tag :color="assetTone(item)">{{ item.missing ? 'missing' : item.thumbnailStatus }}</Tag>

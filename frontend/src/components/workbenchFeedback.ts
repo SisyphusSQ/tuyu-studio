@@ -68,6 +68,10 @@ export function statusBadgeView(value: string): StatusBadgeView {
       return badge(fallback, 'Missing asset', 'error', 'Referenced asset is missing or unreadable.')
     case 'missing_context':
       return badge(fallback, 'Missing context', 'error', 'Shot context is missing required fields or references.')
+    case 'main_reference_missing':
+      return badge(fallback, 'Main ref missing', 'warning', 'Profile has no main reference asset selected.')
+    case 'main_reference':
+      return badge(fallback, 'Main reference', 'success', 'Profile has a visible main reference asset.')
     case 'blocked':
       return badge(fallback, 'Blocked', 'error', 'A blocking validation issue prevents the next action.')
     case 'context_dirty':

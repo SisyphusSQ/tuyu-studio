@@ -6,6 +6,14 @@ export function AppInfo() {
   return window['go']['main']['App']['AppInfo']();
 }
 
+export function ProjectAssetBind(arg1) {
+  return window['go']['main']['App']['ProjectAssetBind'](arg1);
+}
+
+export function ProjectAssetBindingsList(arg1) {
+  return window['go']['main']['App']['ProjectAssetBindingsList'](arg1);
+}
+
 export function ProjectAssetImport(arg1) {
   return window['go']['main']['App']['ProjectAssetImport'](arg1);
 }
@@ -28,6 +36,10 @@ export function ProjectGraphView(arg1) {
 
 export function ProjectHealth(arg1) {
   return window['go']['main']['App']['ProjectHealth'](arg1);
+}
+
+export function ProjectMainReferenceSet(arg1) {
+  return window['go']['main']['App']['ProjectMainReferenceSet'](arg1);
 }
 
 export function ProjectOpen(arg1) {

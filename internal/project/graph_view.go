@@ -293,7 +293,7 @@ func (s *Store) graphNodeDTO(root string, manifest Manifest, node Node, index in
 	refID := strings.TrimSpace(node.RefID)
 	filename, canReadRef := safeProjectFilePath(root, refID)
 	invalidRef := refID != "" && !canReadRef
-	summary := s.nodeDisplaySummary(filename, refID, node, kind, canReadRef)
+	summary := s.nodeDisplaySummary(root, manifest, filename, refID, node, kind, canReadRef)
 	if summary.source == "" {
 		summary.source = "imported"
 	}
@@ -318,6 +318,13 @@ func (s *Store) graphNodeDTO(root string, manifest Manifest, node Node, index in
 		badges = append(badges, shotBadges...)
 		if len(missingFields) > 0 {
 			summary.data["missingFields"] = strings.Join(missingFields, ", ")
+		}
+	}
+	if (kind == BindingTargetCharacter || kind == BindingTargetScene || kind == BindingTargetProp) && canReadRef {
+		if strings.TrimSpace(summary.data["mainReferenceAssetId"]) != "" {
+			badges = append(badges, "main_reference")
+		} else {
+			badges = append(badges, "main_reference_missing")
 		}
 	}
 	for _, issue := range issues {
@@ -586,7 +593,7 @@ func (s *Store) syntheticResultNodes(root string, manifest Manifest, offset int,
 	return nodes, edges
 }
 
-func (s *Store) nodeDisplaySummary(filename string, relative string, node Node, kind string, canRead bool) nodeDisplaySummary {
+func (s *Store) nodeDisplaySummary(root string, manifest Manifest, filename string, relative string, node Node, kind string, canRead bool) nodeDisplaySummary {
 	data := map[string]string{
 		"path": relative,
 	}
@@ -607,6 +614,7 @@ func (s *Store) nodeDisplaySummary(filename string, relative string, node Node, 
 	case "character", "scene", "prop":
 		title, summary := readJSONSummary(filename, "displayName", "shortDescription", titleFallback(relative))
 		data["summary"] = summary
+		s.addProfileNodeData(root, manifest, filename, relative, kind, data)
 		return nodeDisplaySummary{title: title, data: data, source: "imported"}
 	case "shot":
 		title, summary := readJSONSummary(filename, "title", "description", titleFallback(relative))
@@ -624,6 +632,34 @@ func (s *Store) nodeDisplaySummary(filename string, relative string, node Node, 
 	default:
 		data["summary"] = "Unsupported graph node kind: " + strings.TrimSpace(node.Kind)
 		return nodeDisplaySummary{title: titleFallback(relative), data: data, source: "imported"}
+	}
+}
+
+func (s *Store) addProfileNodeData(root string, manifest Manifest, filename string, relative string, kind string, data map[string]string) {
+	record, err := readProfileRecordFile(filename, relative, kind)
+	if err != nil {
+		return
+	}
+	index, err := s.loadAssetIndex(root, manifest.Project.ID)
+	if err != nil {
+		return
+	}
+	assets := assetMapByID(s.hydrateAssetsForList(root, index.Assets))
+	profile := profileDTOWithBindings(record.dto, index, map[string]profileRecord{record.dto.key(): record}, assets)
+	data["profileId"] = profile.ID
+	data["referenceAssetIds"] = strings.Join(profile.ReferenceAssetIDs, ", ")
+	data["bindingCount"] = strconv.Itoa(profile.BindingCount)
+	if profile.MainReferenceAssetID != "" {
+		data["mainReferenceAssetId"] = profile.MainReferenceAssetID
+		data["mainReferencePath"] = profile.MainReferencePath
+		data["mainReferenceThumbnailPath"] = profile.MainReferenceThumbnailPath
+	}
+	if profile.MissingMainReference {
+		data["mainReferenceStatus"] = "missing"
+	} else if profile.MainReferenceAssetID != "" {
+		data["mainReferenceStatus"] = "ready"
+	} else {
+		data["mainReferenceStatus"] = "empty"
 	}
 }
 
