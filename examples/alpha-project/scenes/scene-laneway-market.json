@@ -1,0 +1,21 @@
+{
+  "id": "scene_laneway_market",
+  "displayName": "Laneway Market After Rain",
+  "shortDescription": "A narrow market lane with wet pavement and a warm food stall.",
+  "timeOfDay": "evening",
+  "visualRules": [
+    "cool wet pavement",
+    "warm stall light",
+    "red lantern accents"
+  ],
+  "referenceAssetIds": [
+    "asset_ref_scene_laneway_market"
+  ],
+  "referencePaths": [
+    "assets/refs/scene-laneway-market.txt"
+  ],
+  "thumbnailPath": "assets/thumbnails/thumb-scene-laneway-market.txt",
+  "continuityRuleIds": [
+    "rule_scene_wet_pavement"
+  ]
+}

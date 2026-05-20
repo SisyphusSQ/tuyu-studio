@@ -1,0 +1,11 @@
+{
+  "runId": "run_mock_001",
+  "status": "not_submitted",
+  "providerProfileId": "provider_manual_handoff",
+  "targetType": "shot",
+  "targetId": "shot_001",
+  "inputSummary": "Manual handoff placeholder for shot_001.",
+  "eventIds": [],
+  "outputs": [],
+  "createdAt": "2026-05-20T05:40:00Z"
+}

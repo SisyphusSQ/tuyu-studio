@@ -1,0 +1,35 @@
+{
+  "id": "shot_002",
+  "sceneId": "scene_laneway_market",
+  "title": "Lantern correction close-up",
+  "status": "context_ready",
+  "index": 2,
+  "durationSeconds": 5,
+  "aspectRatio": "9:16",
+  "shotType": "close_up",
+  "cameraMovement": "locked",
+  "description": "Mina straightens the red lantern and the wet poster catches warm light.",
+  "action": "She steadies the lantern with one hand and shields the poster with the paper bag.",
+  "emotion": "focused and hopeful",
+  "characterIds": [
+    "char_mina"
+  ],
+  "sceneIdRefs": [
+    "scene_laneway_market"
+  ],
+  "propIds": [
+    "prop_red_lantern"
+  ],
+  "referenceAssetIds": [
+    "asset_ref_prop_red_lantern",
+    "asset_ref_scene_laneway_market"
+  ],
+  "sourceRange": {
+    "startLine": 9,
+    "endLine": 9
+  },
+  "continuityRuleIds": [
+    "rule_prop_lantern_position"
+  ],
+  "packageIds": []
+}
