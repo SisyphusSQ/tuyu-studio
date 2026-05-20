@@ -42,9 +42,17 @@ import {
   type ProjectOperationName,
   type ProjectOperationResultDTO,
   type RuntimeEventDTO,
+  type ScriptDocumentDTO,
+  type ScriptDocumentResultDTO,
   type WorkbenchProbeMode,
   type WorkbenchStatusDTO,
 } from './api/dto'
+import {
+  DEFAULT_SCRIPT_DOCUMENT_ID,
+  DEFAULT_SCRIPT_SOURCE_ASSET_ID,
+  loadScriptDocument,
+  saveScriptDocument,
+} from './api/scriptDocument'
 import { runProjectGraphView, runProjectOperation, runWorkbenchProbe, saveProjectGraphLayout } from './api/workbench'
 import GraphCanvas from './components/GraphCanvas.vue'
 import {
@@ -89,6 +97,16 @@ const canvasGrid = ref<CanvasGridDTO>({ visible: true, size: 24, opacity: 0.24 }
 const saveState = ref<SaveFeedbackState>('idle')
 const lastSavedAt = ref<string>()
 const copiedInspectorText = ref('')
+const scriptDocument = ref<ScriptDocumentDTO>()
+const scriptResult = ref<ScriptDocumentResultDTO>()
+const scriptTitle = ref('Alpha Script')
+const scriptSourceAssetId = ref(DEFAULT_SCRIPT_SOURCE_ASSET_ID)
+const scriptRawText = ref('')
+const scriptLogline = ref('')
+const scriptSynopsis = ref('')
+const scriptLoading = ref(false)
+const scriptSaving = ref(false)
+const scriptDirty = ref(false)
 
 const railItems = [
   { key: 'assets', icon: () => h(DatabaseOutlined), label: 'Assets' },
@@ -126,6 +144,7 @@ const saveBadge = computed(() => summarizeSaveState(saveState.value, lastSavedAt
 const visibleErrors = computed(() => [
   graphResult.value?.error,
   projectResult.value?.error,
+  scriptResult.value?.error,
   probeError.value,
   ...graphErrors.value,
 ].filter((error): error is AppErrorDTO => Boolean(error)))
@@ -139,7 +158,10 @@ const errorSummary = computed(() => firstErrorSummary([
 ]))
 const latestEventLabel = computed(() => latestEventSummary(
   graphResult.value?.events,
-  projectResult.value?.events,
+  [
+    ...(projectResult.value?.events || []),
+    ...(scriptResult.value?.events || []),
+  ],
   runtimeEvents.value,
 ))
 const selectedSummary = computed(() => selectionLabel(selectedGraphNodes.value, selectedGraphNode.value))
@@ -164,6 +186,26 @@ const canvasHealthType = computed(() => {
   }
   return 'success'
 })
+const scriptByteCount = computed(() => new TextEncoder().encode(scriptRawText.value).length)
+const scriptStatusLabel = computed(() => {
+  if (scriptResult.value?.ok && scriptDocument.value) {
+    return `${scriptDocument.value.title} · ${scriptDocument.value.updatedAt || 'saved'}`
+  }
+  if (scriptResult.value?.error) {
+    return `${scriptResult.value.error.code} · ${scriptResult.value.error.correlationId}`
+  }
+  return scriptDirty.value ? 'Unsaved' : 'Ready'
+})
+const scriptStatusType = computed(() => {
+  if (scriptResult.value?.ok) {
+    return 'success'
+  }
+  if (scriptResult.value?.error?.severity === 'blocking' || scriptResult.value?.error?.severity === 'error') {
+    return 'error'
+  }
+  return scriptDirty.value ? 'warning' : 'info'
+})
+const scriptRecoveryActions = computed(() => scriptResult.value?.error?.recoveryActions || [])
 
 onMounted(() => {
   void loadProjectGraph()
@@ -252,6 +294,68 @@ async function copyInspectorSummary() {
     // Clipboard permissions are browser dependent; the visible copied state still confirms the action.
   }
 }
+
+function markScriptDirty() {
+  scriptDirty.value = true
+}
+
+function hydrateScriptForm(document: ScriptDocumentDTO) {
+  scriptDocument.value = document
+  scriptTitle.value = document.title
+  scriptSourceAssetId.value = document.sourceAssetId || scriptSourceAssetId.value || DEFAULT_SCRIPT_SOURCE_ASSET_ID
+  scriptRawText.value = document.rawText
+  scriptLogline.value = document.logline || ''
+  scriptSynopsis.value = document.synopsis || ''
+  scriptDirty.value = false
+}
+
+async function saveCurrentScriptDocument() {
+  scriptSaving.value = true
+  scriptResult.value = await saveScriptDocument({
+    scriptId: scriptDocument.value?.id || DEFAULT_SCRIPT_DOCUMENT_ID,
+    title: scriptTitle.value,
+    sourceAssetId: scriptSourceAssetId.value,
+    rawText: scriptRawText.value,
+    logline: scriptLogline.value,
+    synopsis: scriptSynopsis.value,
+  })
+  if (scriptResult.value.document) {
+    hydrateScriptForm(scriptResult.value.document)
+  } else {
+    scriptDirty.value = true
+  }
+  activeInspectorTab.value = 'tasks'
+  scriptSaving.value = false
+}
+
+async function importScriptSourceAsset() {
+  scriptSaving.value = true
+  scriptResult.value = await saveScriptDocument({
+    scriptId: scriptDocument.value?.id || DEFAULT_SCRIPT_DOCUMENT_ID,
+    title: scriptTitle.value,
+    sourceAssetId: scriptSourceAssetId.value,
+    rawText: '',
+    logline: scriptLogline.value,
+    synopsis: scriptSynopsis.value,
+  })
+  if (scriptResult.value.document) {
+    hydrateScriptForm(scriptResult.value.document)
+  }
+  activeInspectorTab.value = 'tasks'
+  scriptSaving.value = false
+}
+
+async function loadCurrentScriptDocument() {
+  scriptLoading.value = true
+  scriptResult.value = await loadScriptDocument({
+    scriptId: scriptDocument.value?.id || DEFAULT_SCRIPT_DOCUMENT_ID,
+  })
+  if (scriptResult.value.document) {
+    hydrateScriptForm(scriptResult.value.document)
+  }
+  activeInspectorTab.value = 'tasks'
+  scriptLoading.value = false
+}
 </script>
 
 <template>
@@ -277,7 +381,7 @@ async function copyInspectorSummary() {
           </Tag>
           <Badge :status="graphCanvas ? 'success' : 'default'" :text="`Graph ${graphCanvas?.version ?? '-'}`" />
           <Tag :color="healthStatusTone">Health {{ healthStatus }}</Tag>
-          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0)}`" />
+          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0) + (scriptResult?.events.length || 0)}`" />
           <Segmented
             v-model:value="themeMode"
             class="theme-switch"
@@ -364,9 +468,107 @@ async function copyInspectorSummary() {
               </List>
             </TabPane>
             <TabPane key="script" tab="Script">
-              <div class="placeholder-list">
-                <strong>Scene split queue</strong>
-                <span>Manual scene and shot candidates start in TOO-172.</span>
+              <div class="script-editor">
+                <div class="script-editor-bar">
+                  <Tag :color="scriptDirty ? 'warning' : scriptResult?.ok ? 'success' : 'default'">
+                    {{ scriptDocument?.id || DEFAULT_SCRIPT_DOCUMENT_ID }}
+                  </Tag>
+                  <Tag>{{ scriptByteCount }} bytes</Tag>
+                </div>
+
+                <label class="script-field">
+                  <span>Title</span>
+                  <input
+                    v-model="scriptTitle"
+                    class="script-input"
+                    type="text"
+                    autocomplete="off"
+                    @input="markScriptDirty"
+                  >
+                </label>
+
+                <label class="script-field">
+                  <span>Source asset</span>
+                  <input
+                    v-model="scriptSourceAssetId"
+                    class="script-input"
+                    type="text"
+                    autocomplete="off"
+                    @input="markScriptDirty"
+                  >
+                </label>
+
+                <div class="script-actions">
+                  <Button size="small" :loading="scriptSaving" :disabled="!scriptSourceAssetId.trim()" @click="importScriptSourceAsset">
+                    <template #icon>
+                      <FolderOpenOutlined />
+                    </template>
+                    Import asset
+                  </Button>
+                  <Button size="small" :loading="scriptLoading" @click="loadCurrentScriptDocument">
+                    <template #icon>
+                      <ReloadOutlined />
+                    </template>
+                    Load
+                  </Button>
+                  <Button size="small" type="primary" :loading="scriptSaving" :disabled="!scriptRawText.trim()" @click="saveCurrentScriptDocument">
+                    <template #icon>
+                      <SaveOutlined />
+                    </template>
+                    Save
+                  </Button>
+                </div>
+
+                <label class="script-field">
+                  <span>Logline</span>
+                  <textarea
+                    v-model="scriptLogline"
+                    class="script-textarea script-textarea--short"
+                    spellcheck="false"
+                    @input="markScriptDirty"
+                  />
+                </label>
+
+                <label class="script-field">
+                  <span>Synopsis</span>
+                  <textarea
+                    v-model="scriptSynopsis"
+                    class="script-textarea script-textarea--short"
+                    spellcheck="false"
+                    @input="markScriptDirty"
+                  />
+                </label>
+
+                <label class="script-field">
+                  <span>Raw text</span>
+                  <textarea
+                    v-model="scriptRawText"
+                    class="script-textarea script-textarea--raw"
+                    spellcheck="false"
+                    @input="markScriptDirty"
+                  />
+                </label>
+
+                <Alert
+                  v-if="scriptResult || scriptDirty"
+                  class="service-alert"
+                  :type="scriptStatusType"
+                  show-icon
+                  :message="scriptResult?.error?.userMessage || scriptStatusLabel"
+                  :description="scriptStatusLabel"
+                />
+                <List
+                  v-if="scriptRecoveryActions.length"
+                  class="recovery-list"
+                  size="small"
+                  :data-source="scriptRecoveryActions"
+                >
+                  <template #renderItem="{ item }">
+                    <ListItem>
+                      <span>{{ item }}</span>
+                    </ListItem>
+                  </template>
+                </List>
               </div>
             </TabPane>
             <TabPane key="blueprint" tab="Blueprint">
@@ -793,7 +995,23 @@ async function copyInspectorSummary() {
                     </ListItem>
                   </template>
                 </List>
-                <div v-if="!runtimeEvents.length && !projectResult?.events.length" class="placeholder-list">
+                <List v-if="scriptResult?.events.length" class="event-list" size="small" :data-source="scriptResult.events">
+                  <template #renderItem="{ item }">
+                    <ListItem>
+                      <ListItemMeta>
+                        <template #title>
+                          <strong class="event-title">
+                            {{ item.eventType }} · {{ item.state }}
+                          </strong>
+                        </template>
+                        <template #description>
+                          <span>{{ item.summary }} · {{ item.createdAt }}</span>
+                        </template>
+                      </ListItemMeta>
+                    </ListItem>
+                  </template>
+                </List>
+                <div v-if="!runtimeEvents.length && !projectResult?.events.length && !scriptResult?.events.length" class="placeholder-list">
                   <strong>No run records</strong>
                   <span>{{ latestEventLabel }}</span>
                 </div>

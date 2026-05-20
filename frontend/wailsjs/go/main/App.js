@@ -30,6 +30,14 @@ export function ProjectSave(arg1) {
   return window['go']['main']['App']['ProjectSave'](arg1);
 }
 
+export function ProjectScriptDocumentLoad(arg1) {
+  return window['go']['main']['App']['ProjectScriptDocumentLoad'](arg1);
+}
+
+export function ProjectScriptDocumentSave(arg1) {
+  return window['go']['main']['App']['ProjectScriptDocumentSave'](arg1);
+}
+
 export function ShellHealth() {
   return window['go']['main']['App']['ShellHealth']();
 }

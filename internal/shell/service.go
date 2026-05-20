@@ -157,6 +157,16 @@ func (s *Service) ProjectGraphLayoutSave(command project.SaveGraphLayoutCommand)
 	return s.projectStore.SaveGraphLayout(command)
 }
 
+func (s *Service) ProjectScriptDocumentSave(command project.SaveScriptDocumentCommand) project.ScriptDocumentResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.SaveScriptDocument(command)
+}
+
+func (s *Service) ProjectScriptDocumentLoad(command project.LoadScriptDocumentCommand) project.ScriptDocumentResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.LoadScriptDocument(command)
+}
+
 func (s *Service) WorkbenchProbe(command WorkbenchProbeCommand) WorkbenchProbeResult {
 	now := time.Now().UTC()
 	checkedAt := now.Format(time.RFC3339)

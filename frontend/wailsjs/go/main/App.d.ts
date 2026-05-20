@@ -17,6 +17,10 @@ export function ProjectOpen(arg1:project.OpenProjectCommand):Promise<project.Ope
 
 export function ProjectSave(arg1:project.SaveProjectCommand):Promise<project.OperationResult>;
 
+export function ProjectScriptDocumentLoad(arg1:project.LoadScriptDocumentCommand):Promise<project.ScriptDocumentResult>;
+
+export function ProjectScriptDocumentSave(arg1:project.SaveScriptDocumentCommand):Promise<project.ScriptDocumentResult>;
+
 export function ShellHealth():Promise<shell.Health>;
 
 export function WorkbenchProbe(arg1:shell.WorkbenchProbeCommand):Promise<shell.WorkbenchProbeResult>;

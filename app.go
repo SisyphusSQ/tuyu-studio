@@ -57,3 +57,11 @@ func (a *App) ProjectGraphView(command project.GraphViewCommand) project.GraphVi
 func (a *App) ProjectGraphLayoutSave(command project.SaveGraphLayoutCommand) project.GraphViewResult {
 	return a.service.ProjectGraphLayoutSave(command)
 }
+
+func (a *App) ProjectScriptDocumentSave(command project.SaveScriptDocumentCommand) project.ScriptDocumentResult {
+	return a.service.ProjectScriptDocumentSave(command)
+}
+
+func (a *App) ProjectScriptDocumentLoad(command project.LoadScriptDocumentCommand) project.ScriptDocumentResult {
+	return a.service.ProjectScriptDocumentLoad(command)
+}

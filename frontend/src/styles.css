@@ -266,6 +266,76 @@ h2 {
   background: #fffdf7;
 }
 
+.script-editor {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding-bottom: 12px;
+}
+
+.script-editor-bar,
+.script-actions {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.script-field {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  color: var(--text-panel);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.script-field span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.script-input,
+.script-textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid rgba(44, 62, 53, 0.16);
+  border-radius: 8px;
+  color: var(--text-panel);
+  background: #fffdf7;
+  outline: none;
+}
+
+.script-input:focus,
+.script-textarea:focus {
+  border-color: rgba(31, 122, 100, 0.66);
+  box-shadow: 0 0 0 2px rgba(61, 161, 118, 0.12);
+}
+
+.script-input {
+  min-height: 34px;
+  padding: 6px 9px;
+}
+
+.script-textarea {
+  resize: vertical;
+  padding: 8px 9px;
+  line-height: 1.45;
+}
+
+.script-textarea--short {
+  min-height: 62px;
+}
+
+.script-textarea--raw {
+  min-height: 220px;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
 .canvas-shell {
   min-width: 0;
   height: calc(100vh - 128px);
