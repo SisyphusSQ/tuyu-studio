@@ -9,3 +9,7 @@ export function AppInfo() {
 export function ShellHealth() {
   return window['go']['main']['App']['ShellHealth']();
 }
+
+export function WorkbenchProbe(arg1) {
+  return window['go']['main']['App']['WorkbenchProbe'](arg1);
+}

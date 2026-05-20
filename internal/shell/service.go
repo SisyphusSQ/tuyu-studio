@@ -1,6 +1,9 @@
 package shell
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type Info struct {
 	AppName      string   `json:"appName"`
@@ -17,6 +20,52 @@ type Health struct {
 	TechnicalDetail string   `json:"technicalDetail"`
 	RecoveryActions []string `json:"recoveryActions"`
 	CheckedAt       string   `json:"checkedAt"`
+}
+
+type AppError struct {
+	Code            string   `json:"code"`
+	Severity        string   `json:"severity"`
+	Retryable       bool     `json:"retryable"`
+	TargetType      string   `json:"targetType,omitempty"`
+	TargetID        string   `json:"targetId,omitempty"`
+	UserMessage     string   `json:"userMessage"`
+	TechnicalDetail string   `json:"technicalDetail,omitempty"`
+	RecoveryActions []string `json:"recoveryActions"`
+	CorrelationID   string   `json:"correlationId"`
+}
+
+type RuntimeEvent struct {
+	EventID     string    `json:"eventId"`
+	RunID       string    `json:"runId,omitempty"`
+	EventType   string    `json:"eventType"`
+	State       string    `json:"state"`
+	Progress    int       `json:"progress"`
+	TargetType  string    `json:"targetType,omitempty"`
+	TargetID    string    `json:"targetId,omitempty"`
+	Summary     string    `json:"summary"`
+	Error       *AppError `json:"error,omitempty"`
+	NextActions []string  `json:"nextActions"`
+	CreatedAt   string    `json:"createdAt"`
+}
+
+type WorkbenchStatus struct {
+	ServiceName  string   `json:"serviceName"`
+	Status       string   `json:"status"`
+	Summary      string   `json:"summary"`
+	Capabilities []string `json:"capabilities"`
+	CheckedAt    string   `json:"checkedAt"`
+}
+
+type WorkbenchProbeCommand struct {
+	Mode          string `json:"mode"`
+	CorrelationID string `json:"correlationId"`
+}
+
+type WorkbenchProbeResult struct {
+	OK       bool            `json:"ok"`
+	Snapshot WorkbenchStatus `json:"snapshot"`
+	Error    *AppError       `json:"error,omitempty"`
+	Events   []RuntimeEvent  `json:"events"`
 }
 
 type Service struct {
@@ -46,10 +95,118 @@ func (s *Service) Health() Health {
 		Status:          "ready",
 		Severity:        "info",
 		UserMessage:     "Desktop shell is ready.",
-		TechnicalDetail: "Domain services are intentionally not mounted in TOO-160.",
+		TechnicalDetail: "Alpha shell service boundary is available; project domain services are intentionally not mounted yet.",
 		RecoveryActions: []string{
-			"Continue with TOO-161 to mount the Workbench first screen.",
+			"Use the Workbench probe to verify the local Go service and DTO boundary.",
 		},
 		CheckedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+}
+
+func (s *Service) WorkbenchProbe(command WorkbenchProbeCommand) WorkbenchProbeResult {
+	now := time.Now().UTC()
+	checkedAt := now.Format(time.RFC3339)
+	mode := strings.TrimSpace(command.Mode)
+	correlationID := strings.TrimSpace(command.CorrelationID)
+	if correlationID == "" {
+		correlationID = "probe-" + now.Format("20060102T150405Z")
+	}
+
+	switch mode {
+	case "", "status":
+		snapshot := WorkbenchStatus{
+			ServiceName: "shell.workbench",
+			Status:      "ready",
+			Summary:     "Go service responded through the Wails facade and API wrapper.",
+			Capabilities: []string{
+				"facade_probe",
+				"structured_error_dto",
+				"runtime_event_projection",
+			},
+			CheckedAt: checkedAt,
+		}
+
+		return WorkbenchProbeResult{
+			OK:       true,
+			Snapshot: snapshot,
+			Events: []RuntimeEvent{
+				{
+					EventID:     "evt-" + correlationID + "-completed",
+					EventType:   "workbench.probe",
+					State:       "completed",
+					Progress:    100,
+					TargetType:  "workbench",
+					TargetID:    "alpha-shell",
+					Summary:     "Workbench probe completed with a structured status DTO.",
+					NextActions: []string{"Use the structured-error action to verify AppErrorDTO rendering."},
+					CreatedAt:   checkedAt,
+				},
+			},
+		}
+	case "structured_error":
+		err := AppError{
+			Code:            "workbench_probe_blocked",
+			Severity:        "blocking",
+			Retryable:       false,
+			TargetType:      "workbench",
+			TargetID:        "alpha-shell",
+			UserMessage:     "The probe was intentionally blocked to verify structured error rendering.",
+			TechnicalDetail: "TOO-162 structured_error mode returns AppErrorDTO instead of a raw string error.",
+			RecoveryActions: []string{
+				"Inspect the recovery action list in the Workbench UI.",
+				"Run the ready probe to verify the success path.",
+			},
+			CorrelationID: correlationID,
+		}
+
+		return WorkbenchProbeResult{
+			OK:    false,
+			Error: &err,
+			Events: []RuntimeEvent{
+				{
+					EventID:     "evt-" + correlationID + "-blocked",
+					EventType:   "workbench.probe",
+					State:       "blocked",
+					Progress:    0,
+					TargetType:  "workbench",
+					TargetID:    "alpha-shell",
+					Summary:     "Workbench probe produced a structured blocking error.",
+					Error:       &err,
+					NextActions: err.RecoveryActions,
+					CreatedAt:   checkedAt,
+				},
+			},
+		}
+	default:
+		err := AppError{
+			Code:            "workbench_probe_mode_invalid",
+			Severity:        "error",
+			Retryable:       true,
+			TargetType:      "workbench",
+			TargetID:        "alpha-shell",
+			UserMessage:     "Unsupported probe mode.",
+			TechnicalDetail: "mode=" + mode,
+			RecoveryActions: []string{"Use status or structured_error as the probe mode."},
+			CorrelationID:   correlationID,
+		}
+
+		return WorkbenchProbeResult{
+			OK:    false,
+			Error: &err,
+			Events: []RuntimeEvent{
+				{
+					EventID:     "evt-" + correlationID + "-failed",
+					EventType:   "workbench.probe",
+					State:       "failed",
+					Progress:    0,
+					TargetType:  "workbench",
+					TargetID:    "alpha-shell",
+					Summary:     "Workbench probe rejected an unsupported mode.",
+					Error:       &err,
+					NextActions: err.RecoveryActions,
+					CreatedAt:   checkedAt,
+				},
+			},
+		}
 	}
 }

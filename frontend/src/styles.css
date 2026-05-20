@@ -413,6 +413,7 @@ h2 {
 
 .queue-list {
   display: block;
+  margin-bottom: 14px;
 }
 
 .queue-list .ant-list-item {
@@ -426,6 +427,44 @@ h2 {
 }
 
 .queue-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-panel);
+}
+
+.service-panel {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.service-actions,
+.capability-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.service-alert {
+  border-radius: 8px;
+}
+
+.recovery-list .ant-list-item,
+.event-list .ant-list-item {
+  padding: 8px 0 !important;
+}
+
+.recovery-list span,
+.event-list span {
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.event-title {
+  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

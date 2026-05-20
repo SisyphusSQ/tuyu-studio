@@ -31,6 +31,14 @@ import {
 } from '@ant-design/icons-vue'
 import { h, ref } from 'vue'
 
+import {
+  type AppErrorDTO,
+  type RuntimeEventDTO,
+  type WorkbenchProbeMode,
+  type WorkbenchStatusDTO,
+} from './api/dto'
+import { runWorkbenchProbe } from './api/workbench'
+
 const LayoutHeader = Layout.Header
 const LayoutContent = Layout.Content
 const LayoutSider = Layout.Sider
@@ -41,6 +49,10 @@ const TabPane = Tabs.TabPane
 const themeMode = ref<'dark' | 'warm'>('dark')
 const activeRailTab = ref('assets')
 const activeInspectorTab = ref('properties')
+const probeLoading = ref(false)
+const probeSnapshot = ref<WorkbenchStatusDTO>()
+const probeError = ref<AppErrorDTO>()
+const runtimeEvents = ref<RuntimeEventDTO[]>([])
 
 const railItems = [
   { key: 'assets', icon: () => h(DatabaseOutlined), label: 'Assets' },
@@ -67,6 +79,17 @@ const queueItems = [
   { label: 'Mock run', value: 'not configured' },
   { label: 'Review import', value: 'waiting for TOO-180' },
 ]
+
+async function runProbe(mode: WorkbenchProbeMode) {
+  probeLoading.value = true
+  const result = await runWorkbenchProbe(mode)
+
+  probeSnapshot.value = result.ok ? result.snapshot : undefined
+  probeError.value = result.error
+  runtimeEvents.value = result.events
+  activeInspectorTab.value = 'tasks'
+  probeLoading.value = false
+}
 </script>
 
 <template>
@@ -296,15 +319,88 @@ const queueItems = [
                   </ListItem>
                 </template>
               </List>
+
+              <section class="service-panel" aria-label="Go service probe">
+                <div class="service-actions">
+                  <Button
+                    size="small"
+                    type="primary"
+                    :loading="probeLoading"
+                    @click="runProbe('status')"
+                  >
+                    Probe Go service
+                  </Button>
+                  <Button
+                    size="small"
+                    danger
+                    :loading="probeLoading"
+                    @click="runProbe('structured_error')"
+                  >
+                    Show structured error
+                  </Button>
+                </div>
+
+                <Alert
+                  v-if="probeSnapshot"
+                  class="service-alert"
+                  type="success"
+                  show-icon
+                  :message="probeSnapshot.summary"
+                  :description="`${probeSnapshot.serviceName} · ${probeSnapshot.status} · ${probeSnapshot.checkedAt}`"
+                />
+                <div v-if="probeSnapshot" class="capability-row">
+                  <Tag v-for="capability in probeSnapshot.capabilities" :key="capability">
+                    {{ capability }}
+                  </Tag>
+                </div>
+
+                <Alert
+                  v-if="probeError"
+                  class="service-alert"
+                  :type="probeError.severity === 'blocking' ? 'error' : 'warning'"
+                  show-icon
+                  :message="probeError.userMessage"
+                  :description="`${probeError.code} · ${probeError.severity} · ${probeError.correlationId}`"
+                />
+                <List
+                  v-if="probeError"
+                  class="recovery-list"
+                  size="small"
+                  :data-source="probeError.recoveryActions"
+                >
+                  <template #renderItem="{ item }">
+                    <ListItem>
+                      <span>{{ item }}</span>
+                    </ListItem>
+                  </template>
+                </List>
+              </section>
+
+              <List class="event-list" size="small" :data-source="runtimeEvents">
+                <template #renderItem="{ item }">
+                  <ListItem>
+                    <ListItemMeta>
+                      <template #title>
+                        <strong class="event-title">
+                          {{ item.eventType }} · {{ item.state }} · {{ item.progress }}%
+                        </strong>
+                      </template>
+                      <template #description>
+                        <span>{{ item.summary }} · {{ item.createdAt }}</span>
+                      </template>
+                    </ListItemMeta>
+                  </ListItem>
+                </template>
+              </List>
             </TabPane>
           </Tabs>
 
           <Divider />
           <Alert
-            type="warning"
+            type="info"
             show-icon
-            message="Known UI limit"
-            description="This card only creates the production shell. Structured Go service calls and Error/Event DTO display are handled by TOO-162."
+            message="Go service bridge boundary"
+            description="Page components call frontend/src/api/workbench.ts; generated Wails binding imports stay outside Workbench components."
           />
         </LayoutSider>
       </Layout>
@@ -317,8 +413,8 @@ const queueItems = [
         </div>
         <div class="bottom-group">
           <Tag color="success">Health clean</Tag>
-          <span>Events 0 running</span>
-          <Progress class="queue-progress" :percent="24" size="small" />
+          <span>Events {{ runtimeEvents.length }} captured</span>
+          <Progress class="queue-progress" :percent="runtimeEvents[0]?.progress ?? 24" size="small" />
         </div>
         <Button size="small">
           <template #icon>
