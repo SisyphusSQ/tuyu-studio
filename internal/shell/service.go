@@ -116,6 +116,7 @@ func (s *Service) Info() Info {
 			"project_continuity_rule_save",
 			"project_continuity_rule_unlock",
 			"project_asset_binding_unlock",
+			"project_generation_package_export",
 		},
 	}
 }
@@ -259,6 +260,11 @@ func (s *Service) ProjectShotContextPromote(command project.PromoteShotContextCo
 func (s *Service) ProjectShotContextMarkDirty(command project.MarkShotContextDirtyCommand) project.ShotContextResult {
 	command.Root = s.projectRoot(command.Root)
 	return s.projectStore.MarkShotContextDirty(command)
+}
+
+func (s *Service) ProjectGenerationPackageExport(command project.ExportGenerationPackageCommand) project.GenerationPackageResult {
+	command.Root = s.projectRoot(command.Root)
+	return s.projectStore.ExportGenerationPackage(command)
 }
 
 func (s *Service) WorkbenchProbe(command WorkbenchProbeCommand) WorkbenchProbeResult {

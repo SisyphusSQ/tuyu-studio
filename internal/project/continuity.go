@@ -706,8 +706,9 @@ func (s *Store) markShotsDirtyForContinuityChange(root string, manifest Manifest
 func (s *Store) updateManifestShotStatuses(root string, manifest Manifest, shotIDs []string, status string, now time.Time) error {
 	wanted := map[string]struct{}{}
 	for _, shotID := range cleanStringList(shotIDs) {
-		shotRelativePath := path.Join(path.Clean(strings.ReplaceAll(manifest.Paths.Shots, "\\", "/")), shotID+".json")
-		wanted[shotRelativePath] = struct{}{}
+		if nodeID := manifestShotNodeID(root, manifest, shotID); nodeID != "" {
+			wanted[nodeID] = struct{}{}
+		}
 	}
 	updated := false
 	for index := range manifest.Graph.Nodes {
@@ -715,12 +716,16 @@ func (s *Store) updateManifestShotStatuses(root string, manifest Manifest, shotI
 		if strings.TrimSpace(node.Kind) != "shot" {
 			continue
 		}
-		if _, ok := wanted[path.Clean(strings.ReplaceAll(node.RefID, "\\", "/"))]; ok {
+		if _, ok := wanted[strings.TrimSpace(node.ID)]; ok {
 			node.Status = status
 			updated = true
 		}
 	}
-	if !updated {
+	packageUpdated, err := s.markPackagesStaleForShots(root, &manifest, shotIDs, now)
+	if err != nil {
+		return err
+	}
+	if !updated && !packageUpdated {
 		return nil
 	}
 	manifest.Project.UpdatedAt = now.UTC().Format(time.RFC3339)
@@ -749,6 +754,17 @@ func (s *Store) readAllShotContextRecords(root string, manifest Manifest) ([]sho
 			continue
 		}
 		shotID := strings.TrimSuffix(entry.Name(), filepath.Ext(entry.Name()))
+		relative := path.Join(dirRelative, entry.Name())
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
+		if err != nil {
+			return nil, err
+		}
+		var value struct {
+			ID string `json:"id"`
+		}
+		if json.Unmarshal(data, &value) == nil && strings.TrimSpace(value.ID) != "" {
+			shotID = strings.TrimSpace(value.ID)
+		}
 		record, result := s.readShotContextRecord(root, manifest, shotID, "continuity-impact")
 		if result != nil {
 			return nil, fmt.Errorf("%s: %s", entry.Name(), result.Error.TechnicalDetail)
@@ -773,6 +789,10 @@ func (s *Store) readPackageManifests(root string, manifest Manifest) map[string]
 		var packageData packageManifest
 		if json.Unmarshal(data, &packageData) != nil {
 			return nil
+		}
+		relative, err := filepath.Rel(root, filename)
+		if err == nil {
+			packageData.ManifestPath = filepath.ToSlash(relative)
 		}
 		if packageData.ShotID != "" {
 			results[packageData.ShotID] = append(results[packageData.ShotID], packageData)

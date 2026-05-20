@@ -20,8 +20,8 @@ func TestServiceInfo(t *testing.T) {
 	if info.StartedAt != "2026-05-20T03:00:00Z" {
 		t.Fatalf("StartedAt = %q, want RFC3339 UTC", info.StartedAt)
 	}
-	if len(info.Capabilities) != 19 {
-		t.Fatalf("Capabilities length = %d, want 19", len(info.Capabilities))
+	if len(info.Capabilities) != 20 {
+		t.Fatalf("Capabilities length = %d, want 20", len(info.Capabilities))
 	}
 	if !containsCapability(info.Capabilities, "project_asset_import") || !containsCapability(info.Capabilities, "project_asset_list") {
 		t.Fatalf("Capabilities = %#v, want asset import/list", info.Capabilities)
@@ -31,6 +31,9 @@ func TestServiceInfo(t *testing.T) {
 	}
 	if !containsCapability(info.Capabilities, "project_continuity_rule_save") || !containsCapability(info.Capabilities, "project_asset_binding_unlock") {
 		t.Fatalf("Capabilities = %#v, want continuity rule and binding unlock", info.Capabilities)
+	}
+	if !containsCapability(info.Capabilities, "project_generation_package_export") {
+		t.Fatalf("Capabilities = %#v, want generation package export", info.Capabilities)
 	}
 }
 

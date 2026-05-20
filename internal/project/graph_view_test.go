@@ -72,7 +72,10 @@ func TestGraphViewProjectionExampleMapping(t *testing.T) {
 	requireNode(t, canvas.Nodes, "node_character_mina", "character", "continuity", "Mina")
 	requireNode(t, canvas.Nodes, "node_scene_laneway", "scene", "concept", "Laneway Market After Rain")
 	requireNode(t, canvas.Nodes, "node_prop_lantern", "prop", "continuity", "Red Lantern")
-	requireNode(t, canvas.Nodes, "node_shot_001", "shot", "production", "Mina reaches the stall shelter")
+	shot := requireNode(t, canvas.Nodes, "node_shot_001", "shot", "production", "Mina reaches the stall shelter")
+	if shot.Data["shotId"] != "shot_001" {
+		t.Fatalf("shot node data = %#v, want compact shotId", shot.Data)
+	}
 	requireNode(t, canvas.Nodes, "node_package_001", "package", "handoff", "Package pkg_scene001_shot001")
 	requireNode(t, canvas.Nodes, "node_result_mock-result-summary", "video_result", "output", "Mock Result Summary")
 	requireNode(t, canvas.Nodes, "node_review_001", "note", "review", "Review note review_stub_001")
@@ -134,6 +137,8 @@ func TestGraphViewBoundaryNoFullDomainLeak(t *testing.T) {
 		limit := 3
 		if node.Kind == "character" || node.Kind == "scene" || node.Kind == "prop" {
 			limit = 9
+		} else if node.Kind == "shot" {
+			limit = 4
 		}
 		if len(node.Data) > limit {
 			t.Fatalf("node %q data = %#v, want compact display summary only", node.ID, node.Data)

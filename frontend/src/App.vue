@@ -44,6 +44,7 @@ import {
   type ContinuityLibraryResultDTO,
   type ContinuityResultDTO,
   type ContinuityRuleSeverity,
+  type GenerationPackageResultDTO,
   type GraphNodeDTO,
   type ProfileDTO,
   type ProjectCanvasDTO,
@@ -99,6 +100,7 @@ import {
   promoteShotContext,
   validateShotContext,
 } from './api/shotContext'
+import { exportGenerationPackage } from './api/packageExport'
 import { runProjectGraphView, runProjectOperation, runWorkbenchProbe, saveProjectGraphLayout } from './api/workbench'
 import GraphCanvas from './components/GraphCanvas.vue'
 import {
@@ -207,6 +209,9 @@ const shotContextResult = ref<ShotContextResultDTO>()
 const shotContextAction = ref('')
 const shotContextId = ref('shot_001')
 const shotDirtyReason = ref('manual revision')
+const generationPackageResult = ref<GenerationPackageResultDTO>()
+const packageAction = ref('')
+const packageShotId = ref('shot_002')
 
 const railItems = [
   { key: 'assets', icon: () => h(DatabaseOutlined), label: 'Assets' },
@@ -216,11 +221,16 @@ const railItems = [
   { key: 'history', icon: () => h(HistoryOutlined), label: 'History' },
 ]
 
-const queueItems = [
-  { label: 'Package export', value: 'idle' },
+const queueItems = computed(() => [
+  {
+    label: 'Package export',
+    value: generationPackageResult.value?.package?.generationPackageStatus ||
+      generationPackageResult.value?.error?.code ||
+      'idle',
+  },
   { label: 'Mock run', value: 'not configured' },
   { label: 'Review import', value: 'waiting for TOO-180' },
-]
+])
 
 const graphCanvas = computed(() => activeGraphCanvas.value)
 const graphErrors = computed(() => graphResult.value?.errors || [])
@@ -302,12 +312,14 @@ const operationalEvents = computed(() => [
   ...(continuityResult.value?.events || []),
   ...(scriptResult.value?.events || []),
   ...(sceneResult.value?.events || []),
+  ...(generationPackageResult.value?.events || []),
 ])
 const auditHealthItems = computed(() => [
   ...(projectResult.value?.health?.items || []),
   ...(assetResult.value?.health?.items || []),
   ...(bindingResult.value?.health?.items || []),
   ...(continuityResult.value?.health?.items || []),
+  ...(generationPackageResult.value?.health?.items || []),
 ])
 const graphTheme = computed<CanvasTheme>(() => themeMode.value === 'warm' ? 'warm_light' : 'dark')
 const selectedGraphNodeIDs = computed(() => selectedGraphNodes.value.length > 0
@@ -329,6 +341,7 @@ const visibleErrors = computed(() => [
   scriptResult.value?.error,
   sceneResult.value?.error,
   shotContextResult.value?.error,
+  generationPackageResult.value?.error,
   probeError.value,
   ...graphErrors.value,
 ].filter((error): error is AppErrorDTO => Boolean(error)))
@@ -338,6 +351,7 @@ const healthStatus = computed(() => highestHealthStatus([
   assetResult.value?.health,
   bindingResult.value?.health,
   continuityResult.value?.health,
+  generationPackageResult.value?.health,
 ], visibleErrors.value))
 const healthStatusTone = computed(() => healthTone(healthStatus.value))
 const errorSummary = computed(() => firstErrorSummary([
@@ -353,6 +367,7 @@ const latestEventLabel = computed(() => latestEventSummary(
     ...(scriptResult.value?.events || []),
     ...(sceneResult.value?.events || []),
     ...(shotContextResult.value?.events || []),
+    ...(generationPackageResult.value?.events || []),
   ],
   runtimeEvents.value,
 ))
@@ -437,6 +452,28 @@ const shotContextIssueRows = computed(() => [
   ...(shotContextReport.value?.warnings || []),
 ])
 const shotContextReferenceRows = computed(() => shotContextReport.value?.references || [])
+const activePackageShotID = computed(() => packageShotId.value.trim() || shotContextId.value.trim() || selectedShotID.value)
+const packageStatusType = computed(() => {
+  if (!generationPackageResult.value) {
+    return 'info'
+  }
+  if (generationPackageResult.value.error?.severity === 'blocking' || generationPackageResult.value.error?.severity === 'error') {
+    return 'error'
+  }
+  if (generationPackageResult.value.error) {
+    return 'warning'
+  }
+  return generationPackageResult.value.package?.generationPackageStatus === 'ready' ? 'success' : 'warning'
+})
+const packageSummary = computed(() => {
+  const pkg = generationPackageResult.value?.package
+  if (!pkg) {
+    return generationPackageResult.value?.error?.userMessage || 'No package exported'
+  }
+  return `${pkg.packageId} · v${pkg.packageVersion} · ${pkg.references.length} refs`
+})
+const packageRecoveryActions = computed(() => generationPackageResult.value?.error?.recoveryActions || [])
+const packageReferenceRows = computed(() => generationPackageResult.value?.package?.references || [])
 
 onMounted(() => {
   void loadProjectGraph()
@@ -695,6 +732,7 @@ function selectGraphNode(node: GraphNodeDTO | undefined) {
   selectedGraphNode.value = node
   if (node?.kind === 'shot') {
     shotContextId.value = shotIDFromNode(node) || shotContextId.value
+    packageShotId.value = shotContextId.value
   }
 }
 
@@ -885,6 +923,21 @@ async function markCurrentShotContextDirty() {
   shotContextAction.value = ''
 }
 
+async function exportCurrentGenerationPackage() {
+  const shotId = activePackageShotID.value
+  if (!shotId) {
+    return
+  }
+  packageShotId.value = shotId
+  packageAction.value = 'export'
+  generationPackageResult.value = await exportGenerationPackage({ shotId })
+  if (generationPackageResult.value.ok) {
+    await loadProjectGraph()
+  }
+  activeInspectorTab.value = 'tasks'
+  packageAction.value = ''
+}
+
 function ingestSceneCandidateResult(result: ScriptSceneCandidateResultDTO) {
   if (result.document) {
     hydrateScriptForm(result.document)
@@ -981,6 +1034,9 @@ function lineageDetailText(assetId: string): string {
 }
 
 function shotIDFromNode(node: GraphNodeDTO | undefined): string {
+  if (node?.kind === 'shot' && node.data?.shotId) {
+    return node.data.shotId
+  }
   const refId = node?.kind === 'shot' ? node.refId || '' : ''
   const filename = refId.split('/').pop() || ''
   return filename.replace(/\.json$/i, '')
@@ -1010,7 +1066,7 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
           </Tag>
           <Badge :status="graphCanvas ? 'success' : 'default'" :text="`Graph ${graphCanvas?.version ?? '-'}`" />
           <Tag :color="healthStatusTone">Health {{ healthStatus }}</Tag>
-          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0) + (assetResult?.events.length || 0) + (bindingResult?.events.length || 0) + (scriptResult?.events.length || 0) + (sceneResult?.events.length || 0)}`" />
+          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0) + (assetResult?.events.length || 0) + (bindingResult?.events.length || 0) + (scriptResult?.events.length || 0) + (sceneResult?.events.length || 0) + (generationPackageResult?.events.length || 0)}`" />
           <Segmented
             v-model:value="themeMode"
             class="theme-switch"
@@ -1035,7 +1091,14 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
             </Button>
           </Tooltip>
           <Tooltip title="Export handoff package">
-            <Button size="small" type="primary" aria-label="Export handoff package">
+            <Button
+              size="small"
+              type="primary"
+              aria-label="Export handoff package"
+              :loading="packageAction === 'export'"
+              :disabled="!activePackageShotID"
+              @click="exportCurrentGenerationPackage"
+            >
               <template #icon>
                 <CloudUploadOutlined />
               </template>
@@ -1946,6 +2009,91 @@ function shotIDFromNode(node: GraphNodeDTO | undefined): string {
                       <ListItem>
                         <span>{{ item.kind }} · {{ item.referenceId }}</span>
                         <Tag :color="item.status === 'resolved' ? 'success' : 'error'">{{ item.status }}</Tag>
+                      </ListItem>
+                    </template>
+                  </List>
+                </section>
+
+                <section class="service-panel" aria-label="Generation package">
+                  <div class="shot-context-header">
+                    <strong>Generation package</strong>
+                    <Tag v-if="generationPackageResult" :color="packageStatusType">
+                      {{ generationPackageResult.package?.generationPackageStatus || generationPackageResult.error?.code }}
+                    </Tag>
+                  </div>
+                  <label class="script-field">
+                    <span>Shot id</span>
+                    <input v-model="packageShotId" class="script-input" type="text" autocomplete="off">
+                  </label>
+                  <div class="service-actions">
+                    <Button
+                      size="small"
+                      type="primary"
+                      :loading="packageAction === 'export'"
+                      :disabled="!activePackageShotID"
+                      @click="exportCurrentGenerationPackage"
+                    >
+                      <template #icon>
+                        <CloudUploadOutlined />
+                      </template>
+                      Export package
+                    </Button>
+                  </div>
+                  <Alert
+                    v-if="generationPackageResult"
+                    class="service-alert"
+                    :type="packageStatusType"
+                    show-icon
+                    :message="packageSummary"
+                    :description="generationPackageResult.package ? generationPackageResult.package.relativePath : `${generationPackageResult.error?.code} · ${generationPackageResult.error?.correlationId}`"
+                  />
+                  <dl v-if="generationPackageResult?.package" class="property-grid">
+                    <div>
+                      <dt>Manifest</dt>
+                      <dd :title="generationPackageResult.package.manifestPath">
+                        {{ generationPackageResult.package.manifestPath }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Prompt</dt>
+                      <dd :title="generationPackageResult.package.promptPath">
+                        {{ generationPackageResult.package.promptPath }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Checklist</dt>
+                      <dd :title="generationPackageResult.package.uploadChecklistPath">
+                        {{ generationPackageResult.package.uploadChecklistPath }}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Digest</dt>
+                      <dd :title="generationPackageResult.package.contextDigest">
+                        {{ generationPackageResult.package.contextDigest.slice(0, 16) }}
+                      </dd>
+                    </div>
+                  </dl>
+                  <List
+                    v-if="packageReferenceRows.length"
+                    class="recovery-list"
+                    size="small"
+                    :data-source="packageReferenceRows"
+                  >
+                    <template #renderItem="{ item }">
+                      <ListItem>
+                        <span>{{ item.assetId }} · {{ item.packagePath }}</span>
+                      </ListItem>
+                    </template>
+                  </List>
+                  <List
+                    v-if="packageRecoveryActions.length"
+                    class="recovery-list"
+                    size="small"
+                    :data-source="packageRecoveryActions"
+                  >
+                    <template #renderItem="{ item }">
+                      <ListItem>
+                        <span>{{ item }}</span>
                       </ListItem>
                     </template>
                   </List>

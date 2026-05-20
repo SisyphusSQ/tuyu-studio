@@ -133,3 +133,7 @@ func (a *App) ProjectShotContextPromote(command project.PromoteShotContextComman
 func (a *App) ProjectShotContextMarkDirty(command project.MarkShotContextDirtyCommand) project.ShotContextResult {
 	return a.service.ProjectShotContextMarkDirty(command)
 }
+
+func (a *App) ProjectGenerationPackageExport(command project.ExportGenerationPackageCommand) project.GenerationPackageResult {
+	return a.service.ProjectGenerationPackageExport(command)
+}
