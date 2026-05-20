@@ -3,7 +3,6 @@ import {
   Alert,
   Badge,
   Button,
-  Divider,
   Layout,
   List,
   Menu,
@@ -18,10 +17,12 @@ import {
   BgColorsOutlined,
   BranchesOutlined,
   CloudUploadOutlined,
+  CopyOutlined,
   DatabaseOutlined,
   FileTextOutlined,
   FolderOpenOutlined,
   HistoryOutlined,
+  ReloadOutlined,
   SaveOutlined,
   SearchOutlined,
   SettingOutlined,
@@ -46,6 +47,19 @@ import {
 } from './api/dto'
 import { runProjectGraphView, runProjectOperation, runWorkbenchProbe, saveProjectGraphLayout } from './api/workbench'
 import GraphCanvas from './components/GraphCanvas.vue'
+import {
+  continuityRisks,
+  firstErrorSummary,
+  healthTone,
+  highestHealthStatus,
+  latestEventSummary,
+  nodeDataRows,
+  nodeStatusBadges,
+  relationSummaries,
+  selectionLabel,
+  summarizeSaveState,
+  type SaveFeedbackState,
+} from './components/workbenchFeedback'
 
 const LayoutHeader = Layout.Header
 const LayoutContent = Layout.Content
@@ -72,6 +86,9 @@ const selectedGraphNode = ref<GraphNodeDTO>()
 const selectedGraphNodes = ref<GraphNodeDTO[]>([])
 const graphViewportLabel = ref('100%')
 const canvasGrid = ref<CanvasGridDTO>({ visible: true, size: 24, opacity: 0.24 })
+const saveState = ref<SaveFeedbackState>('idle')
+const lastSavedAt = ref<string>()
+const copiedInspectorText = ref('')
 
 const railItems = [
   { key: 'assets', icon: () => h(DatabaseOutlined), label: 'Assets' },
@@ -96,16 +113,47 @@ const queueItems = [
 const graphCanvas = computed(() => activeGraphCanvas.value)
 const graphErrors = computed(() => graphResult.value?.errors || [])
 const graphTheme = computed<CanvasTheme>(() => themeMode.value === 'warm' ? 'warm_light' : 'dark')
-const selectedRelations = computed(() => {
-  const selectedIDs = selectedGraphNodes.value.length > 0
-    ? new Set(selectedGraphNodes.value.map((node) => node.id))
-    : selectedGraphNode.value
-      ? new Set([selectedGraphNode.value.id])
-      : new Set<string>()
-  if (selectedIDs.size === 0 || !graphCanvas.value) {
-    return []
+const selectedGraphNodeIDs = computed(() => selectedGraphNodes.value.length > 0
+  ? selectedGraphNodes.value.map((node) => node.id)
+  : selectedGraphNode.value
+    ? [selectedGraphNode.value.id]
+    : [])
+const selectedNodeBadges = computed(() => nodeStatusBadges(selectedGraphNode.value))
+const selectedNodeDataRows = computed(() => nodeDataRows(selectedGraphNode.value))
+const selectedRelations = computed(() => relationSummaries(graphCanvas.value, selectedGraphNodeIDs.value))
+const continuityRiskRows = computed(() => continuityRisks(selectedGraphNode.value, selectedRelations.value))
+const saveBadge = computed(() => summarizeSaveState(saveState.value, lastSavedAt.value))
+const visibleErrors = computed(() => [
+  graphResult.value?.error,
+  projectResult.value?.error,
+  probeError.value,
+  ...graphErrors.value,
+].filter((error): error is AppErrorDTO => Boolean(error)))
+const healthStatus = computed(() => highestHealthStatus([
+  graphResult.value?.health,
+  projectResult.value?.health,
+], visibleErrors.value))
+const healthStatusTone = computed(() => healthTone(healthStatus.value))
+const errorSummary = computed(() => firstErrorSummary([
+  ...visibleErrors.value,
+]))
+const latestEventLabel = computed(() => latestEventSummary(
+  graphResult.value?.events,
+  projectResult.value?.events,
+  runtimeEvents.value,
+))
+const selectedSummary = computed(() => selectionLabel(selectedGraphNodes.value, selectedGraphNode.value))
+const inspectorSummary = computed(() => {
+  if (!selectedGraphNode.value) {
+    return `${graphCanvas.value?.projectId || 'project'} · ${graphCanvas.value?.nodes.length || 0} nodes`
   }
-  return graphCanvas.value.edges.filter((edge) => selectedIDs.has(edge.sourceNodeId) || selectedIDs.has(edge.targetNodeId))
+  const node = selectedGraphNode.value
+  return [
+    node.title,
+    `kind=${node.kind}`,
+    `status=${node.status || 'none'}`,
+    `ref=${node.refId || 'none'}`,
+  ].join(' · ')
 })
 const canvasHealthType = computed(() => {
   if (graphResult.value?.health?.status === 'blocking') {
@@ -159,6 +207,7 @@ async function loadProjectGraph(expectedGraphVersion?: number) {
 
 async function saveCanvasLayout(command: ProjectGraphLayoutSaveCommandDTO) {
   graphSaving.value = true
+  saveState.value = 'saving'
   graphResult.value = await saveProjectGraphLayout(command)
   const canvas = graphResult.value.canvas
   if (canvas) {
@@ -166,7 +215,17 @@ async function saveCanvasLayout(command: ProjectGraphLayoutSaveCommandDTO) {
     canvasGrid.value = canvas.grid
     graphViewportLabel.value = `${Math.round(canvas.viewport.zoom * 100)}%`
   }
-  activeInspectorTab.value = 'tasks'
+  if (graphResult.value.ok && canvas) {
+    saveState.value = 'saved'
+    lastSavedAt.value = new Date().toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    })
+  } else {
+    saveState.value = 'failed'
+    activeInspectorTab.value = 'tasks'
+  }
   graphSaving.value = false
 }
 
@@ -182,6 +241,15 @@ function toggleCanvasGrid() {
   canvasGrid.value = {
     ...canvasGrid.value,
     visible: !canvasGrid.value.visible,
+  }
+}
+
+async function copyInspectorSummary() {
+  copiedInspectorText.value = inspectorSummary.value
+  try {
+    await navigator.clipboard?.writeText(inspectorSummary.value)
+  } catch {
+    // Clipboard permissions are browser dependent; the visible copied state still confirms the action.
   }
 }
 </script>
@@ -204,8 +272,12 @@ function toggleCanvasGrid() {
 
         <section class="top-status" aria-label="Workspace status">
           <Tag color="processing">mock_local</Tag>
-          <Badge status="success" :text="`Graph ${graphCanvas?.version ?? '-'}`" />
-          <Badge status="warning" text="2 queue slots" />
+          <Tag :color="saveBadge.tone" :title="saveBadge.detail">
+            {{ saveBadge.label }}
+          </Tag>
+          <Badge :status="graphCanvas ? 'success' : 'default'" :text="`Graph ${graphCanvas?.version ?? '-'}`" />
+          <Tag :color="healthStatusTone">Health {{ healthStatus }}</Tag>
+          <Badge status="processing" :text="`Queue ${runtimeEvents.length + (projectResult?.events.length || 0)}`" />
           <Segmented
             v-model:value="themeMode"
             class="theme-switch"
@@ -385,205 +457,377 @@ function toggleCanvasGrid() {
           </section>
         </LayoutContent>
 
-        <LayoutSider class="inspector" width="344" theme="light">
+        <LayoutSider class="inspector" width="392" theme="light">
           <section class="inspector-header">
-            <div>
+            <div class="inspector-title">
               <p class="eyebrow">Inspector</p>
-              <h2>{{ selectedGraphNode?.title || 'Canvas selection' }}</h2>
+              <h2 :title="selectedGraphNode?.title || 'Canvas selection'">
+                {{ selectedGraphNode?.title || 'Canvas selection' }}
+              </h2>
             </div>
-            <Tag :color="selectedGraphNode ? 'processing' : 'default'">
-              {{ selectedGraphNode?.kind || 'none' }}
-            </Tag>
+            <div class="inspector-actions">
+              <Tag :color="selectedGraphNode ? 'processing' : 'default'">
+                {{ selectedGraphNode?.kind || 'canvas' }}
+              </Tag>
+              <Tooltip title="Focus selected node">
+                <Button
+                  size="small"
+                  aria-label="Focus selected node"
+                  :disabled="selectedGraphNodeIDs.length === 0"
+                  @click="graphCanvasRef?.focusSelected()"
+                >
+                  <template #icon>
+                    <ShareAltOutlined />
+                  </template>
+                </Button>
+              </Tooltip>
+              <Tooltip title="Copy selection summary">
+                <Button size="small" aria-label="Copy selection summary" @click="copyInspectorSummary">
+                  <template #icon>
+                    <CopyOutlined />
+                  </template>
+                </Button>
+              </Tooltip>
+            </div>
           </section>
 
-          <Tabs v-model:activeKey="activeInspectorTab" size="small">
-            <TabPane key="properties" tab="Properties">
-              <dl class="property-grid">
-                <div>
-                  <dt>Type</dt>
-                  <dd>{{ selectedGraphNode?.kind || 'Canvas' }}</dd>
-                </div>
-                <div>
-                  <dt>Source</dt>
-                  <dd>{{ selectedGraphNode?.source || graphCanvas?.projectId || '-' }}</dd>
-                </div>
-                <div>
-                  <dt>Reference</dt>
-                  <dd>{{ selectedGraphNode?.refId || selectedGraphNode?.status || '-' }}</dd>
-                </div>
-                <div v-if="selectedGraphNode?.badges.length">
-                  <dt>Badges</dt>
-                  <dd>{{ selectedGraphNode.badges.join(', ') }}</dd>
-                </div>
-              </dl>
-            </TabPane>
-            <TabPane key="relations" tab="Relations">
-              <List class="queue-list" size="small" :data-source="selectedRelations">
-                <template #renderItem="{ item }">
-                  <ListItem>
-                    <span class="queue-label">
-                      {{ item.sourceNodeId }} -> {{ item.targetNodeId }}
-                    </span>
-                    <Tag :color="item.validity === 'valid' ? 'success' : 'warning'">
-                      {{ item.relation }}
-                    </Tag>
-                  </ListItem>
-                </template>
-              </List>
-              <div v-if="!selectedRelations.length" class="placeholder-list">
-                <strong>No selected relations</strong>
-                <span>{{ selectedGraphNode ? selectedGraphNode.id : 'Canvas' }}</span>
-              </div>
-            </TabPane>
-            <TabPane key="tasks" tab="Tasks">
-              <List class="queue-list" size="small" :data-source="queueItems">
-                <template #renderItem="{ item }">
-                  <ListItem>
-                    <span class="queue-label">{{ item.label }}</span>
-                    <Tag>{{ item.value }}</Tag>
-                  </ListItem>
-                </template>
-              </List>
+          <div class="status-badge-row" aria-label="Selection status badges">
+            <Tag
+              v-for="badge in selectedNodeBadges"
+              :key="badge.key"
+              :color="badge.tone"
+              :title="badge.detail"
+              class="status-badge"
+            >
+              {{ badge.label }}
+            </Tag>
+            <Tag v-if="!selectedNodeBadges.length" color="default">Canvas</Tag>
+          </div>
 
-              <section class="service-panel" aria-label="Go service probe">
-                <div class="service-actions">
-                  <Button
-                    size="small"
-                    type="primary"
-                    :loading="probeLoading"
-                    @click="runProbe('status')"
-                  >
-                    Probe Go service
-                  </Button>
-                  <Button
-                    size="small"
-                    danger
-                    :loading="probeLoading"
-                    @click="runProbe('structured_error')"
-                  >
-                    Show structured error
-                  </Button>
-                </div>
+          <Tabs v-model:activeKey="activeInspectorTab" size="small" class="inspector-tabs" :tab-bar-gutter="10">
+            <TabPane key="properties" tab="Props">
+              <div class="inspector-tab-body">
+                <dl class="property-grid">
+                  <div>
+                    <dt>Type</dt>
+                    <dd>{{ selectedGraphNode?.kind || 'Canvas' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Status</dt>
+                    <dd>{{ selectedGraphNode?.status || healthStatus }}</dd>
+                  </div>
+                  <div>
+                    <dt>Source</dt>
+                    <dd>{{ selectedGraphNode?.source || graphCanvas?.projectId || '-' }}</dd>
+                  </div>
+                  <div>
+                    <dt>Reference</dt>
+                    <dd :title="selectedGraphNode?.refId || ''">
+                      {{ selectedGraphNode?.refId || '-' }}
+                    </dd>
+                  </div>
+                  <div v-if="selectedGraphNode?.sourceEventId">
+                    <dt>Source event</dt>
+                    <dd>{{ selectedGraphNode.sourceEventId }}</dd>
+                  </div>
+                  <div v-if="selectedGraphNode">
+                    <dt>Canvas</dt>
+                    <dd>{{ selectedGraphNode.position.x }}, {{ selectedGraphNode.position.y }} · {{ selectedGraphNode.size.width }}x{{ selectedGraphNode.size.height }}</dd>
+                  </div>
+                </dl>
 
-                <div class="service-actions">
-                  <Button
-                    size="small"
-                    :loading="projectLoading === 'create'"
-                    @click="runProjectAction('create')"
-                  >
-                    <template #icon>
-                      <AppstoreOutlined />
-                    </template>
-                    Create project
-                  </Button>
-                  <Button
-                    size="small"
-                    :loading="projectLoading === 'open'"
-                    @click="runProjectAction('open')"
-                  >
-                    <template #icon>
-                      <FolderOpenOutlined />
-                    </template>
-                    Open project
-                  </Button>
-                  <Button
-                    size="small"
-                    :loading="projectLoading === 'save'"
-                    @click="runProjectAction('save')"
-                  >
-                    <template #icon>
-                      <SaveOutlined />
-                    </template>
-                    Save project
-                  </Button>
-                  <Button
-                    size="small"
-                    :loading="projectLoading === 'health'"
-                    @click="runProjectAction('health')"
-                  >
-                    <template #icon>
-                      <SearchOutlined />
-                    </template>
-                    Health check
-                  </Button>
-                  <Button
-                    size="small"
-                    :loading="graphLoading"
-                    @click="loadProjectGraph()"
-                  >
-                    <template #icon>
-                      <BranchesOutlined />
-                    </template>
-                    Load graph
-                  </Button>
-                </div>
-
-                <Alert
-                  v-if="probeSnapshot"
-                  class="service-alert"
-                  type="success"
-                  show-icon
-                  :message="probeSnapshot.summary"
-                  :description="`${probeSnapshot.serviceName} · ${probeSnapshot.status} · ${probeSnapshot.checkedAt}`"
-                />
-                <div v-if="probeSnapshot" class="capability-row">
-                  <Tag v-for="capability in probeSnapshot.capabilities" :key="capability">
-                    {{ capability }}
-                  </Tag>
-                </div>
-
-                <Alert
-                  v-if="probeError"
-                  class="service-alert"
-                  :type="probeError.severity === 'blocking' ? 'error' : 'warning'"
-                  show-icon
-                  :message="probeError.userMessage"
-                  :description="`${probeError.code} · ${probeError.severity} · ${probeError.correlationId}`"
-                />
                 <List
-                  v-if="probeError"
-                  class="recovery-list"
+                  v-if="selectedNodeDataRows.length"
+                  class="detail-list"
                   size="small"
-                  :data-source="probeError.recoveryActions"
+                  :data-source="selectedNodeDataRows"
                 >
                   <template #renderItem="{ item }">
                     <ListItem>
-                      <span>{{ item }}</span>
+                      <strong>{{ item.label }}</strong>
+                      <span :title="item.value">{{ item.value }}</span>
+                    </ListItem>
+                  </template>
+                </List>
+              </div>
+            </TabPane>
+
+            <TabPane key="relations" tab="Links">
+              <div class="inspector-tab-body">
+                <List class="relation-list" size="small" :data-source="selectedRelations">
+                  <template #renderItem="{ item }">
+                    <ListItem>
+                      <div class="relation-row">
+                        <strong :title="item.label">{{ item.label }}</strong>
+                        <span>{{ item.direction }} · {{ item.peerTitle }}</span>
+                        <span v-if="item.validity !== 'valid'" class="relation-detail">
+                          {{ item.detail }}
+                        </span>
+                      </div>
+                      <Tag :color="item.tone">{{ item.relation }}</Tag>
+                    </ListItem>
+                  </template>
+                </List>
+                <div v-if="!selectedRelations.length" class="placeholder-list">
+                  <strong>No selected relations</strong>
+                  <span>{{ selectedGraphNode ? selectedGraphNode.id : graphCanvas?.projectId || 'Canvas' }}</span>
+                </div>
+              </div>
+            </TabPane>
+
+            <TabPane key="continuity" tab="Rules">
+              <div class="inspector-tab-body">
+                <List v-if="continuityRiskRows.length" class="risk-list" size="small" :data-source="continuityRiskRows">
+                  <template #renderItem="{ item }">
+                    <ListItem>
+                      <div class="risk-row">
+                        <strong>{{ item.label }}</strong>
+                        <span>{{ item.detail }}</span>
+                      </div>
+                      <Tag :color="item.tone">{{ item.tone }}</Tag>
+                    </ListItem>
+                  </template>
+                </List>
+                <div v-else class="placeholder-list">
+                  <strong>Continuity ready</strong>
+                  <span>{{ selectedGraphNode?.title || graphCanvas?.id || 'Canvas' }}</span>
+                </div>
+              </div>
+            </TabPane>
+
+            <TabPane key="tasks" tab="Tasks">
+              <div class="inspector-tab-body">
+                <section class="task-preview">
+                  <strong>{{ selectedGraphNode?.kind || 'project' }} context</strong>
+                  <span>{{ inspectorSummary }}</span>
+                  <div class="status-badge-row">
+                    <Tag :color="saveBadge.tone" :title="saveBadge.detail">{{ saveBadge.label }}</Tag>
+                    <Tag :color="healthStatusTone">Health {{ healthStatus }}</Tag>
+                  </div>
+                </section>
+
+                <List class="queue-list" size="small" :data-source="queueItems">
+                  <template #renderItem="{ item }">
+                    <ListItem>
+                      <span class="queue-label">{{ item.label }}</span>
+                      <Tag>{{ item.value }}</Tag>
                     </ListItem>
                   </template>
                 </List>
 
+                <section class="service-panel" aria-label="Go service probe">
+                  <div class="service-actions">
+                    <Button
+                      size="small"
+                      type="primary"
+                      :loading="probeLoading"
+                      @click="runProbe('status')"
+                    >
+                      Probe Go service
+                    </Button>
+                    <Button
+                      size="small"
+                      danger
+                      :loading="probeLoading"
+                      @click="runProbe('structured_error')"
+                    >
+                      Show structured error
+                    </Button>
+                  </div>
+
+                  <div class="service-actions">
+                    <Button
+                      size="small"
+                      :loading="projectLoading === 'create'"
+                      @click="runProjectAction('create')"
+                    >
+                      <template #icon>
+                        <AppstoreOutlined />
+                      </template>
+                      Create project
+                    </Button>
+                    <Button
+                      size="small"
+                      :loading="projectLoading === 'open'"
+                      @click="runProjectAction('open')"
+                    >
+                      <template #icon>
+                        <FolderOpenOutlined />
+                      </template>
+                      Open project
+                    </Button>
+                    <Button
+                      size="small"
+                      :loading="projectLoading === 'save'"
+                      @click="runProjectAction('save')"
+                    >
+                      <template #icon>
+                        <SaveOutlined />
+                      </template>
+                      Save project
+                    </Button>
+                    <Button
+                      size="small"
+                      :loading="projectLoading === 'health'"
+                      @click="runProjectAction('health')"
+                    >
+                      <template #icon>
+                        <SearchOutlined />
+                      </template>
+                      Health check
+                    </Button>
+                    <Button
+                      size="small"
+                      :loading="graphLoading"
+                      @click="loadProjectGraph()"
+                    >
+                      <template #icon>
+                        <BranchesOutlined />
+                      </template>
+                      Load graph
+                    </Button>
+                  </div>
+
+                  <Alert
+                    v-if="probeSnapshot"
+                    class="service-alert"
+                    type="success"
+                    show-icon
+                    :message="probeSnapshot.summary"
+                    :description="`${probeSnapshot.serviceName} · ${probeSnapshot.status} · ${probeSnapshot.checkedAt}`"
+                  />
+                  <div v-if="probeSnapshot" class="capability-row">
+                    <Tag v-for="capability in probeSnapshot.capabilities" :key="capability">
+                      {{ capability }}
+                    </Tag>
+                  </div>
+
+                  <Alert
+                    v-if="probeError"
+                    class="service-alert"
+                    :type="probeError.severity === 'blocking' ? 'error' : 'warning'"
+                    show-icon
+                    :message="probeError.userMessage"
+                    :description="`${probeError.code} · ${probeError.severity} · ${probeError.correlationId}`"
+                  />
+                  <List
+                    v-if="probeError"
+                    class="recovery-list"
+                    size="small"
+                    :data-source="probeError.recoveryActions"
+                  >
+                    <template #renderItem="{ item }">
+                      <ListItem>
+                        <span>{{ item }}</span>
+                      </ListItem>
+                    </template>
+                  </List>
+
+                  <Alert
+                    v-if="projectResult?.summary"
+                    class="service-alert"
+                    :type="projectResult.ok ? 'success' : 'warning'"
+                    show-icon
+                    :message="projectResult.summary.name"
+                    :description="`${projectResult.summary.openMode} · ${projectResult.summary.lockState} · graph ${projectResult.summary.graphVersion}`"
+                  />
+                  <Alert
+                    v-if="projectResult?.health"
+                    class="service-alert"
+                    :type="projectResult.health.status === 'blocking' ? 'error' : projectResult.health.status === 'warning' ? 'warning' : 'success'"
+                    show-icon
+                    :message="`Health ${projectResult.health.status}`"
+                    :description="`${projectResult.health.items.length} items · ${projectResult.health.checkedAt}`"
+                  />
+                  <Alert
+                    v-if="projectResult?.error"
+                    class="service-alert"
+                    :type="projectResult.error.severity === 'blocking' ? 'error' : 'warning'"
+                    show-icon
+                    :message="projectResult.error.userMessage"
+                    :description="`${projectResult.error.code} · ${projectResult.error.correlationId}`"
+                  />
+                  <Alert
+                    v-if="graphResult"
+                    class="service-alert"
+                    :type="canvasHealthType"
+                    show-icon
+                    :message="graphResult.ok ? 'Graph View loaded' : graphResult.error?.userMessage"
+                    :description="graphResult.canvas ? `${graphResult.canvas.nodes.length} nodes · ${graphResult.canvas.edges.length} edges · graph ${graphResult.canvas.version}` : graphResult.error?.code"
+                  />
+                </section>
+              </div>
+            </TabPane>
+
+            <TabPane key="runs" tab="Runs">
+              <div class="inspector-tab-body">
+                <List v-if="runtimeEvents.length" class="event-list" size="small" :data-source="runtimeEvents">
+                  <template #renderItem="{ item }">
+                    <ListItem>
+                      <ListItemMeta>
+                        <template #title>
+                          <strong class="event-title">
+                            {{ item.eventType }} · {{ item.state }} · {{ item.progress }}%
+                          </strong>
+                        </template>
+                        <template #description>
+                          <span>{{ item.summary }} · {{ item.createdAt }}</span>
+                        </template>
+                      </ListItemMeta>
+                    </ListItem>
+                  </template>
+                </List>
+                <List v-if="projectResult?.events.length" class="event-list" size="small" :data-source="projectResult.events">
+                  <template #renderItem="{ item }">
+                    <ListItem>
+                      <ListItemMeta>
+                        <template #title>
+                          <strong class="event-title">
+                            {{ item.eventType }} · {{ item.state }}
+                          </strong>
+                        </template>
+                        <template #description>
+                          <span>{{ item.summary }} · {{ item.createdAt }}</span>
+                        </template>
+                      </ListItemMeta>
+                    </ListItem>
+                  </template>
+                </List>
+                <div v-if="!runtimeEvents.length && !projectResult?.events.length" class="placeholder-list">
+                  <strong>No run records</strong>
+                  <span>{{ latestEventLabel }}</span>
+                </div>
+              </div>
+            </TabPane>
+
+            <TabPane key="audit" tab="Audit">
+              <div class="inspector-tab-body">
+                <dl class="property-grid">
+                  <div>
+                    <dt>Selection</dt>
+                    <dd>{{ selectedSummary }}</dd>
+                  </div>
+                  <div>
+                    <dt>Save</dt>
+                    <dd>{{ saveBadge.label }}</dd>
+                  </div>
+                  <div>
+                    <dt>Latest event</dt>
+                    <dd>{{ latestEventLabel }}</dd>
+                  </div>
+                  <div v-if="copiedInspectorText">
+                    <dt>Copied</dt>
+                    <dd>{{ copiedInspectorText }}</dd>
+                  </div>
+                </dl>
+
                 <Alert
-                  v-if="projectResult?.summary"
+                  v-if="errorSummary"
                   class="service-alert"
-                  :type="projectResult.ok ? 'success' : 'warning'"
+                  :type="errorSummary.severity === 'blocking' || errorSummary.severity === 'error' ? 'error' : 'warning'"
                   show-icon
-                  :message="projectResult.summary.name"
-                  :description="`${projectResult.summary.openMode} · ${projectResult.summary.lockState} · graph ${projectResult.summary.graphVersion}`"
-                />
-                <Alert
-                  v-if="projectResult?.health"
-                  class="service-alert"
-                  :type="projectResult.health.status === 'blocking' ? 'error' : projectResult.health.status === 'warning' ? 'warning' : 'success'"
-                  show-icon
-                  :message="`Health ${projectResult.health.status}`"
-                  :description="`${projectResult.health.items.length} items · ${projectResult.health.checkedAt}`"
-                />
-                <Alert
-                  v-if="projectResult?.error"
-                  class="service-alert"
-                  :type="projectResult.error.severity === 'blocking' ? 'error' : 'warning'"
-                  show-icon
-                  :message="projectResult.error.userMessage"
-                  :description="`${projectResult.error.code} · ${projectResult.error.correlationId}`"
-                />
-                <Alert
-                  v-if="graphResult"
-                  class="service-alert"
-                  :type="canvasHealthType"
-                  show-icon
-                  :message="graphResult.ok ? 'Graph View loaded' : graphResult.error?.userMessage"
-                  :description="graphResult.canvas ? `${graphResult.canvas.nodes.length} nodes · ${graphResult.canvas.edges.length} edges · graph ${graphResult.canvas.version}` : graphResult.error?.code"
+                  :message="errorSummary.message"
+                  :description="`${errorSummary.code} · retryable ${errorSummary.retryable ? 'yes' : 'no'}`"
                 />
                 <List
                   v-if="graphErrors.length"
@@ -610,9 +854,7 @@ function toggleCanvasGrid() {
                           {{ item.code }} · {{ item.severity }}
                         </strong>
                         <span>{{ item.userMessage }}</span>
-                        <span v-if="item.path">
-                          Path {{ item.path }}
-                        </span>
+                        <span v-if="item.path">Path {{ item.path }}</span>
                         <span v-if="item.affectedObjects.length">
                           Affected {{ item.affectedObjects.join(', ') }}
                         </span>
@@ -635,75 +877,31 @@ function toggleCanvasGrid() {
                     </ListItem>
                   </template>
                 </List>
-                <List
-                  v-if="projectResult?.events.length"
-                  class="event-list"
-                  size="small"
-                  :data-source="projectResult.events"
-                >
-                  <template #renderItem="{ item }">
-                    <ListItem>
-                      <ListItemMeta>
-                        <template #title>
-                          <strong class="event-title">
-                            {{ item.eventType }} · {{ item.state }}
-                          </strong>
-                        </template>
-                        <template #description>
-                          <span>{{ item.summary }} · {{ item.createdAt }}</span>
-                        </template>
-                      </ListItemMeta>
-                    </ListItem>
-                  </template>
-                </List>
-              </section>
-
-              <List class="event-list" size="small" :data-source="runtimeEvents">
-                <template #renderItem="{ item }">
-                  <ListItem>
-                    <ListItemMeta>
-                      <template #title>
-                        <strong class="event-title">
-                          {{ item.eventType }} · {{ item.state }} · {{ item.progress }}%
-                        </strong>
-                      </template>
-                      <template #description>
-                        <span>{{ item.summary }} · {{ item.createdAt }}</span>
-                      </template>
-                    </ListItemMeta>
-                  </ListItem>
-                </template>
-              </List>
+              </div>
             </TabPane>
           </Tabs>
-
-          <Divider />
-          <Alert
-            type="info"
-            show-icon
-            message="Go service bridge boundary"
-            description="Page components call frontend/src/api/workbench.ts; generated Wails binding imports stay outside Workbench components."
-          />
         </LayoutSider>
       </Layout>
 
       <footer class="bottom-bar" aria-label="Workbench status">
         <div class="bottom-group">
-          <Badge
-            status="processing"
-            :text="selectedGraphNodes.length > 1 ? `Selection: ${selectedGraphNodes.length} nodes` : `Selection: ${selectedGraphNode?.title || 'Canvas'}`"
-          />
+          <Badge status="processing" :text="selectedSummary" />
           <span>Zoom {{ graphViewportLabel }}</span>
           <span>Grid {{ canvasGrid.visible ? `${canvasGrid.size}px` : 'off' }}</span>
         </div>
         <div class="bottom-group">
-          <Tag :color="canvasHealthType">Health {{ graphResult?.health?.status || 'unknown' }}</Tag>
+          <Tag :color="saveBadge.tone" :title="saveBadge.detail">{{ saveBadge.label }}</Tag>
+          <Tag :color="healthStatusTone">Health {{ healthStatus }}</Tag>
+          <span v-if="errorSummary" :title="errorSummary.message">
+            {{ errorSummary.code }}
+          </span>
           <span>Graph events {{ graphResult?.events.length || 0 }}</span>
-          <Progress class="queue-progress" :percent="runtimeEvents[0]?.progress ?? 24" size="small" />
+          <span :title="latestEventLabel">{{ latestEventLabel }}</span>
+          <Progress class="queue-progress" :percent="runtimeEvents[0]?.progress ?? 0" size="small" />
         </div>
         <Button size="small" :disabled="graphLoading" @click="loadProjectGraph()">
           <template #icon>
-            <BgColorsOutlined />
+            <ReloadOutlined />
           </template>
           Reload
         </Button>
