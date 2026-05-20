@@ -1,6 +1,7 @@
 export type ErrorSeverity = 'info' | 'warning' | 'error' | 'blocking'
 export type RuntimeEventState = 'queued' | 'running' | 'blocked' | 'completed' | 'failed' | 'cancelled'
 export type WorkbenchProbeMode = 'status' | 'structured_error'
+export type ProjectOperationName = 'create' | 'open' | 'save' | 'health'
 
 export interface AppErrorDTO {
   code: string
@@ -48,6 +49,54 @@ export interface WorkbenchProbeResultDTO {
   events: RuntimeEventDTO[]
 }
 
+export interface ProjectSummaryDTO {
+  projectId: string
+  name: string
+  type: string
+  schemaVersion: string
+  rootName: string
+  openMode: string
+  lockState: string
+  lastCleanShutdown: boolean
+  graphVersion: number
+  updatedAt: string
+  capabilities: string[]
+}
+
+export interface HealthItemDTO {
+  severity: ErrorSeverity
+  code: string
+  path?: string
+  affectedObjects: string[]
+  userMessage: string
+  technicalDetail?: string
+  recoveryActions: string[]
+}
+
+export interface HealthReportDTO {
+  status: 'clean' | 'warning' | 'blocking'
+  checkedAt: string
+  items: HealthItemDTO[]
+}
+
+export interface ProjectEventDTO {
+  eventId: string
+  eventType: string
+  state: RuntimeEventState
+  summary: string
+  error?: AppErrorDTO
+  nextActions: string[]
+  createdAt: string
+}
+
+export interface ProjectOperationResultDTO {
+  ok: boolean
+  summary?: ProjectSummaryDTO
+  health?: HealthReportDTO
+  error?: AppErrorDTO
+  events: ProjectEventDTO[]
+}
+
 export function createCorrelationId(prefix = 'ui'): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
@@ -91,6 +140,42 @@ export function normalizeProbeResult(
   return {
     ok: Boolean(result.ok),
     snapshot: result.snapshot,
+    error,
+    events,
+  }
+}
+
+export function normalizeProjectOperationResult(
+  result: Partial<ProjectOperationResultDTO> | null | undefined,
+  correlationId: string,
+): ProjectOperationResultDTO {
+  if (!result) {
+    return {
+      ok: false,
+      error: normalizeUnknownError(new Error('empty project operation response'), correlationId),
+      events: [],
+    }
+  }
+
+  const events = Array.isArray(result.events)
+    ? result.events.map((event) => ({
+      ...event,
+      error: event.error ? normalizeAppError(event.error, correlationId) : undefined,
+      nextActions: Array.isArray(event.nextActions) ? event.nextActions : [],
+    }))
+    : []
+  const error = result.error ? normalizeAppError(result.error, correlationId) : undefined
+  const health = result.health
+    ? {
+      ...result.health,
+      items: Array.isArray(result.health.items) ? result.health.items : [],
+    }
+    : undefined
+
+  return {
+    ok: Boolean(result.ok),
+    summary: result.summary,
+    health,
     error,
     events,
   }

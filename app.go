@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 
+	"github.com/SisyphusSQ/tuyu-studio/internal/project"
 	"github.com/SisyphusSQ/tuyu-studio/internal/shell"
 )
 
@@ -31,4 +32,20 @@ func (a *App) ShellHealth() shell.Health {
 
 func (a *App) WorkbenchProbe(command shell.WorkbenchProbeCommand) shell.WorkbenchProbeResult {
 	return a.service.WorkbenchProbe(command)
+}
+
+func (a *App) ProjectCreate(command project.CreateProjectCommand) project.OperationResult {
+	return a.service.ProjectCreate(command)
+}
+
+func (a *App) ProjectOpen(command project.OpenProjectCommand) project.OperationResult {
+	return a.service.ProjectOpen(command)
+}
+
+func (a *App) ProjectSave(command project.SaveProjectCommand) project.OperationResult {
+	return a.service.ProjectSave(command)
+}
+
+func (a *App) ProjectHealth(command project.CheckProjectHealthCommand) project.OperationResult {
+	return a.service.ProjectHealth(command)
 }
