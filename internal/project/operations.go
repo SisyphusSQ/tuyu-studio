@@ -8,17 +8,20 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"syscall"
 	"time"
 )
 
 const (
-	LockFileRelativePath    = "locks/session.lock"
-	AuditEventsRelativePath = "audit/project-events.jsonl"
-	DigestIndexRelativePath = "audit/digests.json"
+	LockFileRelativePath      = "locks/session.lock"
+	AuditEventsRelativePath   = "audit/project-events.jsonl"
+	RecoveryAuditRelativePath = "audit/repairs.jsonl"
+	DigestIndexRelativePath   = "audit/digests.json"
 
 	DefaultProjectType = "series"
 )
@@ -58,6 +61,9 @@ const (
 	CodeAssetMissing            = "asset_missing"
 	CodeDigestMismatch          = "digest_mismatch"
 	CodeDigestIndexInvalid      = "digest_index_invalid"
+	CodeGraphReferenceMissing   = "graph_reference_missing"
+	CodePackageManifestInvalid  = "package_manifest_invalid"
+	CodePackageReferenceMissing = "package_reference_missing"
 	CodeHealthCheckIncomplete   = "health_check_incomplete"
 )
 
@@ -207,6 +213,17 @@ type auditEntry struct {
 	CreatedAt     string         `json:"createdAt"`
 	Summary       string         `json:"summary"`
 	Details       map[string]any `json:"details,omitempty"`
+}
+
+type packageManifest struct {
+	ProjectID           string   `json:"projectId"`
+	SceneID             string   `json:"sceneId"`
+	ShotID              string   `json:"shotId"`
+	PackageID           string   `json:"packageId"`
+	PromptPath          string   `json:"promptPath"`
+	ContinuityPath      string   `json:"continuityPath"`
+	UploadChecklistPath string   `json:"uploadChecklistPath"`
+	References          []string `json:"references"`
 }
 
 type atomicWriteError struct {
@@ -503,6 +520,8 @@ func (s *Store) HealthReport(root string) HealthReport {
 	items = append(items, healthItemsFromValidation(report)...)
 	items = append(items, s.checkRequiredDirectories(root)...)
 	items = append(items, healthItemsFromLock(s.inspectLock(root))...)
+	items = append(items, s.checkGraphReferences(root, manifest)...)
+	items = append(items, s.checkPackageReferences(root, manifest)...)
 	items = append(items, s.checkDigestIndex(root)...)
 
 	if !manifest.Integrity.LastCleanShutdown {
@@ -570,6 +589,20 @@ func (s *Store) acquireLock(root string, takeover bool, correlationID string, pr
 			},
 		}); err != nil {
 			return LockInfo{}, fmt.Errorf("write takeover audit before lock replace: %w", err)
+		}
+		if err := s.appendRecoveryAudit(root, auditEntry{
+			EventID:       s.eventID("project.lock_takeover.recovery", correlationID),
+			EventType:     "project.lock_takeover",
+			ProjectID:     projectID,
+			CorrelationID: correlationID,
+			CreatedAt:     now,
+			Summary:       "Project lock takeover recorded before replacing the session lock.",
+			Details: map[string]any{
+				"previousState": current.State,
+				"action":        "replace_session_lock",
+			},
+		}); err != nil {
+			return LockInfo{}, fmt.Errorf("write recovery audit before lock replace: %w", err)
 		}
 	}
 
@@ -661,6 +694,317 @@ func (s *Store) checkRequiredDirectories(root string) []HealthItem {
 		})
 	}
 	return items
+}
+
+func (s *Store) checkGraphReferences(root string, manifest Manifest) []HealthItem {
+	var items []HealthItem
+	nodeIDs := make(map[string]struct{}, len(manifest.Graph.Nodes))
+
+	for index, node := range manifest.Graph.Nodes {
+		nodePath := fmt.Sprintf("graph.nodes[%d]", index)
+		affected := []string{}
+		if strings.TrimSpace(node.ID) != "" {
+			affected = []string{node.ID}
+		}
+
+		if strings.TrimSpace(node.ID) == "" {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodeGraphReferenceMissing,
+				Path:            nodePath + ".id",
+				AffectedObjects: []string{},
+				UserMessage:     "Graph node is missing an id.",
+				RecoveryActions: []string{"Restore the graph node id from a valid project backup or remove the incomplete node after review."},
+			})
+			continue
+		}
+		if _, exists := nodeIDs[node.ID]; exists {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodeGraphReferenceMissing,
+				Path:            nodePath + ".id",
+				AffectedObjects: affected,
+				UserMessage:     "Graph node id is duplicated.",
+				RecoveryActions: []string{"Restore unique graph node ids from backup or rebuild the affected graph partition."},
+			})
+		}
+		nodeIDs[node.ID] = struct{}{}
+
+		if strings.TrimSpace(node.RefID) == "" {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodeGraphReferenceMissing,
+				Path:            nodePath + ".refId",
+				AffectedObjects: affected,
+				UserMessage:     "Graph node has no referenced project object.",
+				RecoveryActions: []string{"Reconnect the node to a project object or mark it as a broken placeholder before export."},
+			})
+			continue
+		}
+
+		if invalid := healthItemsForProjectPath("graph.refId", node.RefID, affected); len(invalid) > 0 {
+			items = append(items, invalid...)
+			continue
+		}
+
+		target := filepath.Join(root, filepath.FromSlash(node.RefID))
+		info, err := os.Stat(target)
+		if errors.Is(err, os.ErrNotExist) {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodeGraphReferenceMissing,
+				Path:            node.RefID,
+				AffectedObjects: affected,
+				UserMessage:     "Graph node references a missing project object.",
+				RecoveryActions: []string{"Restore the missing object file, relink the node, or create a broken reference placeholder."},
+			})
+			continue
+		}
+		if err != nil {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodeHealthCheckIncomplete,
+				Path:            node.RefID,
+				AffectedObjects: affected,
+				UserMessage:     "Graph node reference could not be read.",
+				TechnicalDetail: err.Error(),
+				RecoveryActions: []string{"Retry health check after verifying project permissions."},
+			})
+			continue
+		}
+		if info.IsDir() {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodeGraphReferenceMissing,
+				Path:            node.RefID,
+				AffectedObjects: affected,
+				UserMessage:     "Graph node reference points to a directory, not a file.",
+				RecoveryActions: []string{"Relink the node to the intended project object file."},
+			})
+		}
+	}
+
+	for index, edge := range manifest.Graph.Edges {
+		edgeID := strings.TrimSpace(edge.ID)
+		edgePath := fmt.Sprintf("graph.edges[%d]", index)
+		affected := []string{}
+		if edgeID != "" {
+			affected = []string{edgeID}
+			edgePath = "graph.edges." + edgeID
+		}
+
+		if edgeID == "" {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodeGraphReferenceMissing,
+				Path:            edgePath + ".id",
+				AffectedObjects: []string{},
+				UserMessage:     "Graph edge is missing an id.",
+				RecoveryActions: []string{"Restore the graph edge id from backup or remove the incomplete edge after review."},
+			})
+		}
+		if _, exists := nodeIDs[edge.Source]; !exists {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodeGraphReferenceMissing,
+				Path:            edgePath + ".source",
+				AffectedObjects: affected,
+				UserMessage:     "Graph edge source node is missing.",
+				RecoveryActions: []string{"Restore the source node or remove the invalid edge after review."},
+			})
+		}
+		if _, exists := nodeIDs[edge.Target]; !exists {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodeGraphReferenceMissing,
+				Path:            edgePath + ".target",
+				AffectedObjects: affected,
+				UserMessage:     "Graph edge target node is missing.",
+				RecoveryActions: []string{"Restore the target node or remove the invalid edge after review."},
+			})
+		}
+	}
+
+	return items
+}
+
+func (s *Store) checkPackageReferences(root string, manifest Manifest) []HealthItem {
+	manifestPaths := make(map[string]struct{})
+	for _, node := range manifest.Graph.Nodes {
+		if node.Kind != "package" || strings.TrimSpace(node.RefID) == "" {
+			continue
+		}
+		if len(validateProjectPath("package.manifest", node.RefID)) > 0 {
+			continue
+		}
+		manifestPaths[path.Clean(strings.ReplaceAll(node.RefID, "\\", "/"))] = struct{}{}
+	}
+
+	packagesRoot := filepath.Join(root, filepath.FromSlash(manifest.Paths.Packages))
+	if err := filepath.WalkDir(packagesRoot, func(filename string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() || entry.Name() != "manifest.json" {
+			return nil
+		}
+		relative, relErr := filepath.Rel(root, filename)
+		if relErr == nil {
+			manifestPaths[filepath.ToSlash(relative)] = struct{}{}
+		}
+		return nil
+	}); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return []HealthItem{{
+			Severity:        SeverityWarning,
+			Code:            CodeHealthCheckIncomplete,
+			Path:            manifest.Paths.Packages,
+			AffectedObjects: []string{},
+			UserMessage:     "Package directory could not be scanned.",
+			TechnicalDetail: err.Error(),
+			RecoveryActions: []string{"Retry health check after verifying project permissions."},
+		}}
+	}
+
+	ordered := make([]string, 0, len(manifestPaths))
+	for relative := range manifestPaths {
+		ordered = append(ordered, relative)
+	}
+	sort.Strings(ordered)
+
+	var items []HealthItem
+	for _, relative := range ordered {
+		items = append(items, s.checkPackageManifest(root, relative)...)
+	}
+	return items
+}
+
+func (s *Store) checkPackageManifest(root string, manifestRelativePath string) []HealthItem {
+	if invalid := healthItemsForProjectPath("package.manifest", manifestRelativePath, nil); len(invalid) > 0 {
+		return invalid
+	}
+
+	manifestPath := filepath.Join(root, filepath.FromSlash(manifestRelativePath))
+	data, err := os.ReadFile(manifestPath)
+	if errors.Is(err, os.ErrNotExist) {
+		return []HealthItem{{
+			Severity:        SeverityWarning,
+			Code:            CodePackageReferenceMissing,
+			Path:            manifestRelativePath,
+			AffectedObjects: []string{},
+			UserMessage:     "Package manifest referenced by the graph is missing.",
+			RecoveryActions: []string{"Re-export the package or restore the package manifest from backup."},
+		}}
+	}
+	if err != nil {
+		return []HealthItem{{
+			Severity:        SeverityWarning,
+			Code:            CodeHealthCheckIncomplete,
+			Path:            manifestRelativePath,
+			AffectedObjects: []string{},
+			UserMessage:     "Package manifest could not be read.",
+			TechnicalDetail: err.Error(),
+			RecoveryActions: []string{"Retry health check after verifying project permissions."},
+		}}
+	}
+
+	var raw any
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return []HealthItem{{
+			Severity:        SeverityBlocking,
+			Code:            CodePackageManifestInvalid,
+			Path:            manifestRelativePath,
+			AffectedObjects: []string{},
+			UserMessage:     "Package manifest is invalid JSON.",
+			TechnicalDetail: err.Error(),
+			RecoveryActions: []string{"Re-export the package or restore the package manifest from backup."},
+		}}
+	}
+
+	var manifest packageManifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		return []HealthItem{{
+			Severity:        SeverityBlocking,
+			Code:            CodePackageManifestInvalid,
+			Path:            manifestRelativePath,
+			AffectedObjects: []string{},
+			UserMessage:     "Package manifest shape is invalid.",
+			TechnicalDetail: err.Error(),
+			RecoveryActions: []string{"Re-export the package or restore the package manifest from backup."},
+		}}
+	}
+
+	affected := cleanAffectedObjects([]string{manifest.PackageID, manifest.ShotID, manifest.SceneID})
+	items := scanPackageValues(manifestRelativePath, raw, affected)
+	packageRoot := filepath.Dir(manifestPath)
+	relativeRoot := filepath.ToSlash(filepath.Dir(manifestRelativePath))
+	references := []struct {
+		field string
+		value string
+	}{
+		{field: "promptPath", value: manifest.PromptPath},
+		{field: "continuityPath", value: manifest.ContinuityPath},
+		{field: "uploadChecklistPath", value: manifest.UploadChecklistPath},
+	}
+	for index, reference := range manifest.References {
+		references = append(references, struct {
+			field string
+			value string
+		}{field: fmt.Sprintf("references[%d]", index), value: reference})
+	}
+
+	for _, reference := range references {
+		fieldPath := manifestRelativePath + ":" + reference.field
+		value := strings.TrimSpace(reference.value)
+		if value == "" {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodePackageReferenceMissing,
+				Path:            fieldPath,
+				AffectedObjects: affected,
+				UserMessage:     "Package manifest has an empty local reference path.",
+				RecoveryActions: []string{"Re-export the package or restore the missing package-local reference."},
+			})
+			continue
+		}
+
+		if invalid := healthItemsForProjectPath(fieldPath, value, affected); len(invalid) > 0 {
+			items = append(items, invalid...)
+			continue
+		}
+
+		target := filepath.Join(packageRoot, filepath.FromSlash(value))
+		if info, err := os.Stat(target); errors.Is(err, os.ErrNotExist) {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodePackageReferenceMissing,
+				Path:            path.Clean(relativeRoot + "/" + strings.ReplaceAll(value, "\\", "/")),
+				AffectedObjects: affected,
+				UserMessage:     "Package manifest references a missing file.",
+				RecoveryActions: []string{"Re-export the package or restore the referenced package file before handoff."},
+			})
+		} else if err != nil {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodeHealthCheckIncomplete,
+				Path:            fieldPath,
+				AffectedObjects: affected,
+				UserMessage:     "Package manifest reference could not be read.",
+				TechnicalDetail: err.Error(),
+				RecoveryActions: []string{"Retry health check after verifying project permissions."},
+			})
+		} else if info.IsDir() {
+			items = append(items, HealthItem{
+				Severity:        SeverityWarning,
+				Code:            CodePackageReferenceMissing,
+				Path:            path.Clean(relativeRoot + "/" + strings.ReplaceAll(value, "\\", "/")),
+				AffectedObjects: affected,
+				UserMessage:     "Package manifest references a directory instead of a file.",
+				RecoveryActions: []string{"Relink the package reference to the intended file or re-export the package."},
+			})
+		}
+	}
+
+	return dedupeHealthItems(items)
 }
 
 func (s *Store) checkDigestIndex(root string) []HealthItem {
@@ -764,6 +1108,37 @@ func healthItemFromValidation(issue ValidationIssue) HealthItem {
 	}
 }
 
+func healthItemsForProjectPath(field string, value string, affected []string) []HealthItem {
+	issues := validateProjectPath(field, value)
+	items := make([]HealthItem, 0, len(issues))
+	for _, issue := range issues {
+		item := healthItemFromValidation(issue)
+		item.Path = field
+		item.AffectedObjects = cleanAffectedObjects(affected)
+		items = append(items, item)
+	}
+	return items
+}
+
+func scanPackageValues(manifestRelativePath string, value any, affected []string) []HealthItem {
+	var items []HealthItem
+	walkStringValues("", value, func(path string, text string) {
+		if !looksSensitive(text) {
+			return
+		}
+		items = append(items, HealthItem{
+			Severity:        SeverityBlocking,
+			Code:            CodeSensitiveValue,
+			Path:            manifestRelativePath + ":" + path,
+			AffectedObjects: cleanAffectedObjects(affected),
+			UserMessage:     "Package manifest contains a value that looks like private machine data or a credential.",
+			TechnicalDetail: redactSensitiveDetail(text),
+			RecoveryActions: []string{"Replace the value with a package-local or project-relative non-sensitive placeholder."},
+		})
+	})
+	return items
+}
+
 func healthItemsFromLock(info LockInfo) []HealthItem {
 	switch info.State {
 	case LockStateActive:
@@ -800,6 +1175,20 @@ func healthStatus(items []HealthItem) string {
 		}
 	}
 	return status
+}
+
+func dedupeHealthItems(items []HealthItem) []HealthItem {
+	seen := make(map[string]bool, len(items))
+	deduped := make([]HealthItem, 0, len(items))
+	for _, item := range items {
+		key := item.Code + "\x00" + item.Path + "\x00" + strings.Join(item.AffectedObjects, ",")
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		deduped = append(deduped, item)
+	}
+	return deduped
 }
 
 func summaryFromManifest(root string, manifest Manifest, lockInfo LockInfo) ProjectSummary {
@@ -901,6 +1290,15 @@ func (s *Store) correlationID(value string) string {
 
 func (s *Store) appendAudit(root string, entry auditEntry) error {
 	auditPath := filepath.Join(root, filepath.FromSlash(AuditEventsRelativePath))
+	return appendJSONL(auditPath, entry)
+}
+
+func (s *Store) appendRecoveryAudit(root string, entry auditEntry) error {
+	auditPath := filepath.Join(root, filepath.FromSlash(RecoveryAuditRelativePath))
+	return appendJSONL(auditPath, entry)
+}
+
+func appendJSONL(auditPath string, entry auditEntry) error {
 	if err := os.MkdirAll(filepath.Dir(auditPath), 0o755); err != nil {
 		return err
 	}

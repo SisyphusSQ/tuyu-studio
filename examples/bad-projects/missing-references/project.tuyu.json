@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "1.0.0",
+  "project": {
+    "id": "proj_bad_missing_refs",
+    "name": "Bad Missing References",
+    "type": "series",
+    "createdAt": "2026-05-20T06:00:00Z",
+    "updatedAt": "2026-05-20T06:00:00Z"
+  },
+  "paths": {
+    "root": ".",
+    "characters": "characters",
+    "scenes": "scenes",
+    "props": "props",
+    "shots": "shots",
+    "prompts": "prompts",
+    "promptRuns": "prompts/runs",
+    "assets": "assets",
+    "assetInputs": "assets/inputs",
+    "assetRefs": "assets/refs",
+    "assetOutputs": "assets/outputs",
+    "assetResults": "assets/results",
+    "assetThumbnails": "assets/thumbnails",
+    "packages": "packages",
+    "audit": "audit",
+    "backups": "backups",
+    "locks": "locks"
+  },
+  "defaults": {
+    "providerProfileId": "provider_manual_handoff",
+    "language": "zh",
+    "aspectRatio": "9:16"
+  },
+  "integrity": {
+    "lastCleanShutdown": false,
+    "lastGraphVersion": 1,
+    "lastHealthCheckAt": "2026-05-20T06:00:00Z"
+  },
+  "graph": {
+    "version": 1,
+    "nodes": [
+      {
+        "id": "node_script_missing",
+        "kind": "script_document",
+        "refId": "assets/inputs/missing-script.md",
+        "status": "missing"
+      },
+      {
+        "id": "node_shot_missing",
+        "kind": "shot",
+        "refId": "shots/shot-missing.json",
+        "status": "broken"
+      },
+      {
+        "id": "node_package_broken",
+        "kind": "package",
+        "refId": "packages/scene-001/broken-package/manifest.json",
+        "status": "incomplete"
+      }
+    ],
+    "edges": [
+      {
+        "id": "edge_missing_source",
+        "source": "node_unknown",
+        "target": "node_package_broken",
+        "kind": "broken_source"
+      },
+      {
+        "id": "edge_package_to_shot",
+        "source": "node_package_broken",
+        "target": "node_shot_missing",
+        "kind": "review_target"
+      }
+    ],
+    "viewport": {
+      "x": 0,
+      "y": 0,
+      "zoom": 1
+    }
+  },
+  "principles": {
+    "summary": "Intentionally broken project for recovery diagnostics.",
+    "lockedRules": []
+  },
+  "styleBible": {
+    "summary": "No production style; diagnostic fixture only.",
+    "visualRules": []
+  }
+}
