@@ -376,6 +376,8 @@ export interface ShotCardDTO {
   id: string
   projectId: string
   sceneId: string
+  sceneProfileId?: string
+  sceneIdRefs: string[]
   sourceCandidateId: string
   scriptSceneId: string
   index: number
@@ -387,15 +389,76 @@ export interface ShotCardDTO {
   cameraMovement: string
   action: string
   emotion: string
+  emptySceneReason?: string
   characterIds: string[]
   characterRefs: ShotCharacterRefDTO[]
+  propIds: string[]
+  referenceAssetIds: string[]
   sourceRange: ScriptSourceRangeDTO
   status: string
   confirmedBy: string
   confirmedAt: string
   overwrittenFields: string[]
+  packageIds: string[]
+  resultIds: string[]
+  continuityRuleIds: string[]
   createdAt: string
   updatedAt: string
+}
+
+export interface ShotContextIssueDTO {
+  code: string
+  severity: ErrorSeverity
+  field: string
+  referenceId?: string
+  userMessage: string
+  recoveryActions: string[]
+}
+
+export interface ShotReferenceDTO {
+  field: string
+  kind: string
+  referenceId: string
+  status: string
+  path?: string
+}
+
+export interface ShotContextReportDTO {
+  shotId: string
+  status: string
+  canEnterContextReady: boolean
+  missingFields: string[]
+  blocking: ShotContextIssueDTO[]
+  warnings: ShotContextIssueDTO[]
+  references: ShotReferenceDTO[]
+  checkedAt: string
+}
+
+export interface ValidateShotContextCommandDTO {
+  root?: string
+  shotId: string
+  correlationId?: string
+}
+
+export interface PromoteShotContextCommandDTO {
+  root?: string
+  shotId: string
+  correlationId?: string
+}
+
+export interface MarkShotContextDirtyCommandDTO {
+  root?: string
+  shotId: string
+  reason?: string
+  correlationId?: string
+}
+
+export interface ShotContextResultDTO {
+  ok: boolean
+  shot?: ShotCardDTO
+  report: ShotContextReportDTO
+  error?: AppErrorDTO
+  events: ProjectEventDTO[]
 }
 
 export interface ScriptSceneCandidateResultDTO {
@@ -594,6 +657,36 @@ export function normalizeScriptSceneCandidateResult(
   }
 }
 
+export function normalizeShotContextResult(
+  result: Partial<ShotContextResultDTO> | null | undefined,
+  correlationId: string,
+): ShotContextResultDTO {
+  if (!result) {
+    return {
+      ok: false,
+      report: emptyShotContextReport(),
+      error: normalizeUnknownError(new Error('empty shot context response'), correlationId),
+      events: [],
+    }
+  }
+
+  const events = Array.isArray(result.events)
+    ? result.events.map((event) => ({
+      ...event,
+      error: event.error ? normalizeAppError(event.error, correlationId) : undefined,
+      nextActions: Array.isArray(event.nextActions) ? event.nextActions : [],
+    }))
+    : []
+
+  return {
+    ok: Boolean(result.ok),
+    shot: result.shot ? normalizeShotCard(result.shot) : undefined,
+    report: normalizeShotContextReport(result.report),
+    error: result.error ? normalizeAppError(result.error, correlationId) : undefined,
+    events,
+  }
+}
+
 function normalizeProjectCanvas(canvas: ProjectCanvasDTO): ProjectCanvasDTO {
   return {
     ...canvas,
@@ -658,6 +751,8 @@ function normalizeShotCard(shot: Partial<ShotCardDTO>): ShotCardDTO {
     id: shot.id || '',
     projectId: shot.projectId || '',
     sceneId: shot.sceneId || '',
+    sceneProfileId: shot.sceneProfileId,
+    sceneIdRefs: Array.isArray(shot.sceneIdRefs) ? shot.sceneIdRefs : [],
     sourceCandidateId: shot.sourceCandidateId || '',
     scriptSceneId: shot.scriptSceneId || '',
     index: Number(shot.index || 0),
@@ -669,15 +764,69 @@ function normalizeShotCard(shot: Partial<ShotCardDTO>): ShotCardDTO {
     cameraMovement: shot.cameraMovement || '',
     action: shot.action || '',
     emotion: shot.emotion || '',
+    emptySceneReason: shot.emptySceneReason,
     characterIds: Array.isArray(shot.characterIds) ? shot.characterIds : [],
     characterRefs: Array.isArray(shot.characterRefs) ? shot.characterRefs : [],
+    propIds: Array.isArray(shot.propIds) ? shot.propIds : [],
+    referenceAssetIds: Array.isArray(shot.referenceAssetIds) ? shot.referenceAssetIds : [],
     sourceRange: shot.sourceRange || { startLine: 0, endLine: 0 },
     status: shot.status || '',
     confirmedBy: shot.confirmedBy || '',
     confirmedAt: shot.confirmedAt || '',
     overwrittenFields: Array.isArray(shot.overwrittenFields) ? shot.overwrittenFields : [],
+    packageIds: Array.isArray(shot.packageIds) ? shot.packageIds : [],
+    resultIds: Array.isArray(shot.resultIds) ? shot.resultIds : [],
+    continuityRuleIds: Array.isArray(shot.continuityRuleIds) ? shot.continuityRuleIds : [],
     createdAt: shot.createdAt || '',
     updatedAt: shot.updatedAt || '',
+  }
+}
+
+function normalizeShotContextReport(report: Partial<ShotContextReportDTO> | undefined): ShotContextReportDTO {
+  if (!report) {
+    return emptyShotContextReport()
+  }
+  return {
+    shotId: report.shotId || '',
+    status: report.status || '',
+    canEnterContextReady: Boolean(report.canEnterContextReady),
+    missingFields: Array.isArray(report.missingFields) ? report.missingFields : [],
+    blocking: Array.isArray(report.blocking) ? report.blocking.map(normalizeShotContextIssue) : [],
+    warnings: Array.isArray(report.warnings) ? report.warnings.map(normalizeShotContextIssue) : [],
+    references: Array.isArray(report.references)
+      ? report.references.map((reference) => ({
+        field: reference.field || '',
+        kind: reference.kind || '',
+        referenceId: reference.referenceId || '',
+        status: reference.status || 'missing',
+        path: reference.path,
+      }))
+      : [],
+    checkedAt: report.checkedAt || '',
+  }
+}
+
+function normalizeShotContextIssue(issue: Partial<ShotContextIssueDTO>): ShotContextIssueDTO {
+  return {
+    code: issue.code || 'shot_context_issue',
+    severity: issue.severity || 'warning',
+    field: issue.field || '',
+    referenceId: issue.referenceId,
+    userMessage: issue.userMessage || '',
+    recoveryActions: Array.isArray(issue.recoveryActions) ? issue.recoveryActions : [],
+  }
+}
+
+function emptyShotContextReport(): ShotContextReportDTO {
+  return {
+    shotId: '',
+    status: '',
+    canEnterContextReady: false,
+    missingFields: [],
+    blocking: [],
+    warnings: [],
+    references: [],
+    checkedAt: '',
   }
 }
 

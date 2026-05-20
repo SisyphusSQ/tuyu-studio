@@ -124,6 +124,8 @@ type ShotCardDTO struct {
 	ID                string                `json:"id"`
 	ProjectID         string                `json:"projectId"`
 	SceneID           string                `json:"sceneId"`
+	SceneProfileID    string                `json:"sceneProfileId,omitempty"`
+	SceneIDRefs       []string              `json:"sceneIdRefs,omitempty"`
 	SourceCandidateID string                `json:"sourceCandidateId"`
 	ScriptSceneID     string                `json:"scriptSceneId"`
 	Index             int                   `json:"index"`
@@ -135,13 +137,19 @@ type ShotCardDTO struct {
 	CameraMovement    string                `json:"cameraMovement"`
 	Action            string                `json:"action"`
 	Emotion           string                `json:"emotion"`
+	EmptySceneReason  string                `json:"emptySceneReason,omitempty"`
 	CharacterIDs      []string              `json:"characterIds"`
 	CharacterRefs     []ShotCharacterRefDTO `json:"characterRefs"`
+	PropIDs           []string              `json:"propIds,omitempty"`
+	ReferenceAssetIDs []string              `json:"referenceAssetIds,omitempty"`
 	SourceRange       ScriptSourceRange     `json:"sourceRange"`
 	Status            string                `json:"status"`
 	ConfirmedBy       string                `json:"confirmedBy"`
 	ConfirmedAt       string                `json:"confirmedAt"`
 	OverwrittenFields []string              `json:"overwrittenFields"`
+	PackageIDs        []string              `json:"packageIds,omitempty"`
+	ResultIDs         []string              `json:"resultIds,omitempty"`
+	ContinuityRuleIDs []string              `json:"continuityRuleIds,omitempty"`
 	CreatedAt         string                `json:"createdAt"`
 	UpdatedAt         string                `json:"updatedAt"`
 }

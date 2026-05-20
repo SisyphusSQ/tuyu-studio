@@ -58,6 +58,18 @@ export function ProjectShotCandidatesList(arg1) {
   return window['go']['main']['App']['ProjectShotCandidatesList'](arg1);
 }
 
+export function ProjectShotContextMarkDirty(arg1) {
+  return window['go']['main']['App']['ProjectShotContextMarkDirty'](arg1);
+}
+
+export function ProjectShotContextPromote(arg1) {
+  return window['go']['main']['App']['ProjectShotContextPromote'](arg1);
+}
+
+export function ProjectShotContextValidate(arg1) {
+  return window['go']['main']['App']['ProjectShotContextValidate'](arg1);
+}
+
 export function ShellHealth() {
   return window['go']['main']['App']['ShellHealth']();
 }

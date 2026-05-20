@@ -860,6 +860,13 @@ h2 {
   margin-top: 8px;
 }
 
+.shot-context-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .service-actions,
 .capability-row {
   display: flex;
